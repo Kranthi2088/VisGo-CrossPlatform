@@ -1,52 +1,125 @@
-import React from 'react';
-import { View, Text, ImageBackground, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  StatusBar,
+  ActivityIndicator,
+} from "react-native";
+import { useRouter } from "expo-router";
+import {
+  useFonts,
+  Poppins_400Regular,
+  Poppins_700Bold,
+} from "@expo-google-fonts/poppins";
+import { auth } from "../configs/FirebaseConfig";
 
-const IndexPage = () => {
+const IndexScreen = () => {
+  const router = useRouter();
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_700Bold,
+  });
+  const [loading, setLoading] = useState(true); // Track loading state
+  const [user, setUser] = useState(null); // Track authenticated user
+
+  // Check user authentication state asynchronously
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      if (currentUser) {
+        console.log("Authenticated user:", currentUser.email);
+        setUser(currentUser);
+        router.push("/tabs/home"); // Navigate to home tab if authenticated
+      } else {
+        setUser(null);
+      }
+      setLoading(false); // Stop loading once auth state is resolved
+    });
+
+    // Clean up the listener on unmount
+    return () => unsubscribe();
+  }, []);
+
+  if (loading || !fontsLoaded) {
+    // Show a loading spinner until Firebase resolves the auth state
     return (
-        <ImageBackground
-            source={require('../assets/images/new.jpg')}
-            style={styles.backgroundImage}
-        >
-            <View style={styles.overlay}>
-                <Text style={styles.text}>
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.
-                </Text>
-                <TouchableOpacity style={styles.button}>
-                    <Text style={styles.buttonText}>Get Started</Text>
-                </TouchableOpacity>
-            </View>
-        </ImageBackground>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4A4AFF" />
+      </View>
     );
+  }
+
+  return (
+    <View style={styles.container}>
+      <StatusBar hidden />
+      <Image
+        source={require("../assets/images/new.jpg")}
+        style={styles.image}
+        resizeMode="contain"
+      />
+      <Text style={styles.title}>All thoughts.{"\n"}One place.</Text>
+      <Text style={styles.subtitle}>
+        Art is the only way to run away without leaving home.{"\n"}
+      </Text>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.push("/auth/sign-in")}
+      >
+        <Text style={styles.buttonText}>→</Text>
+      </TouchableOpacity>
+    </View>
+  );
 };
 
+const { width } = Dimensions.get("window");
+
 const styles = StyleSheet.create({
-    backgroundImage: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    overlay: {
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        padding: 20,
-        borderRadius: 10,
-        alignItems: 'center',
-    },
-    text: {
-        fontSize: 18,
-        color: '#fff',
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    button: {
-        backgroundColor: '#007bff',
-        padding: 12,
-        borderRadius: 8,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 16,
-    },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+  },
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    padding: 20,
+  },
+  image: {
+    width: width * 0.6,
+    height: width * 0.6,
+    marginBottom: 30,
+  },
+  title: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 28,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 16,
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 30,
+  },
+  button: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "black",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buttonText: {
+    fontSize: 24,
+    color: "white",
+  },
 });
 
-export default IndexPage;
-
+export default IndexScreen;
