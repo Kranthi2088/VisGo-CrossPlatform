@@ -9,7 +9,7 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
-/configs
+configs/
 # macOS
 .DS_Store
 
