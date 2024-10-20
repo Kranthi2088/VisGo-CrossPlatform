@@ -18,10 +18,11 @@ import {
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
 import * as SplashScreen from "expo-splash-screen"; // Import SplashScreen
-import { auth } from "../../configs/FirebaseConfig";
+import { auth, db } from "../../configs/FirebaseConfig"; // Import Firebase configs
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore"; // Firestore functions
 
-// Prevent the splash screen from auto-hiding until the fonts are loaded
+// Prevent the splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
 
 const SignUp = () => {
@@ -30,7 +31,7 @@ const SignUp = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const [isReady, setIsReady] = useState(false); // Track if the fonts are loaded
+  const [isReady, setIsReady] = useState(false); // Track if fonts are loaded
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -48,22 +49,35 @@ const SignUp = () => {
     prepare();
   }, [fontsLoaded]);
 
-  const onCreateAccount = () => {
+  const onCreateAccount = async () => {
     if (!agreeTerms) {
       Alert.alert("Terms Required", "Please agree to the Terms and Conditions");
       return;
     }
 
-    createUserWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        const user = userCredential.user;
-        console.log(user);
-        router.push("/home"); // Navigate to the home page on success
-      })
-      .catch((error) => {
-        console.log(error.code, error.message);
-        Alert.alert("Sign Up Failed", error.message); // Display error
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      // Save the user details to Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        username: username,
+        email: email,
+        bio: "", // Optional empty fields for later updates
+        profilePhoto: "",
+        coverPhoto: "",
       });
+
+      console.log("User registered and data saved!");
+      router.push("/home"); // Navigate to home page
+    } catch (error) {
+      console.error("Error during sign-up:", error);
+      Alert.alert("Sign Up Failed", error.message); // Display error message
+    }
   };
 
   if (!isReady) {
@@ -236,4 +250,3 @@ const styles = StyleSheet.create({
 });
 
 export default SignUp;
-
