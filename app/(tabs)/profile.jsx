@@ -15,8 +15,9 @@ import { useRouter } from "expo-router";
 import { auth, db } from "../../configs/FirebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MasonryList from "react-native-masonry-list";
 
-
+const IMAGE_MARGIN = 10;
 
 const ProfileScreen = () => {
   const router = useRouter();
@@ -27,7 +28,8 @@ const ProfileScreen = () => {
     bio: "",
     profilePhoto: "",
     coverPhoto: "",
-  }); // Initialize with default values
+    uploadedPhotos: [], // Add an empty array for photos initially
+  });
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -37,7 +39,12 @@ const ProfileScreen = () => {
           const docSnap = await getDoc(docRef);
 
           if (docSnap.exists()) {
-            setUserData(docSnap.data()); // Save the data to state
+            const data = docSnap.data();
+            setUserData((prevState) => ({
+              ...prevState,
+              ...data,
+              uploadedPhotos: data.uploadedPhotos || [], // Handle case where photos might not exist yet
+            }));
           } else {
             console.log("No user data found");
           }
@@ -53,8 +60,9 @@ const ProfileScreen = () => {
 
   const renderPhotoItem = ({ item }) => (
     <View style={styles.photoContainer}>
-      <Image source={{ uri: item.uri }} style={styles.photo} />
-      <Text style={styles.photoText}>{item.caption || "No Caption"}</Text>
+      <Image source={{ uri: item }} style={styles.photo} />
+      {/* If you need to add captions later, you can handle them separately */}
+      {/* <Text style={styles.photoText}>{item.caption || "No Caption"}</Text> */}
     </View>
   );
 
@@ -67,15 +75,17 @@ const ProfileScreen = () => {
         source={
           userData.coverPhoto
             ? { uri: userData.coverPhoto }
-            : {uri: "https://picsum.photos/200/200"}
+            : { uri: "https://picsum.photos/200/200" }
         }
         style={styles.coverPhoto}
       />
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Image source={{ uri: userData.profilePhoto }} style={styles.profilePhoto} />
         <View style={styles.statsContainer}>
-        <View style={styles.stat}>
-            <Text style={styles.statNumber}>100</Text>
+          <View style={styles.stat}>
+            <Text style={styles.statNumber}>
+              {userData.uploadedPhotos ? userData.uploadedPhotos.length : 0}
+            </Text>
             <Text style={styles.statLabel}>Posts</Text>
           </View>
           <View style={styles.stat}>
@@ -88,34 +98,33 @@ const ProfileScreen = () => {
           </View>
         </View>
       </View>
+
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
-  <Image
-    source={
-      userData.profilePhoto
-        ? { uri: userData.profilePhoto }
-        : { uri: "https://picsum.photos/200/200" }
-    }
-    style={styles.profileImage}
-  />
+        <Image
+          source={
+            userData.profilePhoto
+              ? { uri: userData.profilePhoto }
+              : { uri: "https://picsum.photos/200/200" }
+          }
+          style={styles.profileImage}
+        />
+        <View style={{ marginLeft: 25, flex: 1, marginTop: 10 }}>
+          <Text style={styles.username}>{userData.username || "Username"}</Text>
+          <Text style={styles.bio}>{userData.bio || "Bio goes here..."}</Text>
+        </View>
+      </View>
 
-  <View style={{ marginLeft: 25, flex: 1 , marginTop: 10}}>
-    <Text style={styles.username}>{userData.username || "Username"}</Text>
-    <Text style={styles.bio}>{userData.bio || "Bio goes here..."}</Text>
-  </View>
-</View>
+      <View style={styles.infoContainer}>
+        <View style={styles.infoItem}>
+          <MaterialCommunityIcons name="calendar" size={24} color="black" />
+          <Text style={styles.infoText}>{userData.dateOfBirth || "Date of Birth"}</Text>
+        </View>
 
-<View style={styles.infoContainer}>
-  <View style={styles.infoItem}>
-    <MaterialCommunityIcons name="calendar" size={24} color="black" />
-    <Text style={styles.infoText}>{userData.dateOfBirth || "Date of Birth"}</Text>
-  </View>
-
-  <View style={styles.infoItem}>
-    <MaterialCommunityIcons name="map-marker" size={24} color="black" />
-    <Text style={styles.infoText}>{userData.address || "Address"}</Text>
-  </View>
-</View>
-
+        <View style={styles.infoItem}>
+          <MaterialCommunityIcons name="map-marker" size={24} color="black" />
+          <Text style={styles.infoText}>{userData.address || "Address"}</Text>
+        </View>
+      </View>
 
       <TouchableOpacity
         style={styles.editButton}
@@ -125,21 +134,20 @@ const ProfileScreen = () => {
       </TouchableOpacity>
 
       {/* Photos Grid Section */}
-      {userData.uploadedPhotos ? (
-        <ScrollView contentContainerStyle={styles.photosGrid}>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
-            {userData.uploadedPhotos.map((item, index) => (
-              <View key={index} style={{ width: width / 2 - 16, marginTop: 16 }}>
-                {renderPhotoItem({ item })}
-              </View>
-            ))}
-          </View>
-        </ScrollView>
+      {/* Photos Grid Section */}
+      {userData.uploadedPhotos.length > 0 ? (
+        <MasonryList
+          images={userData.uploadedPhotos.map((photo) => ({
+            uri: photo,
+          }))}
+          columns={2} // Two columns for masonry layout
+          spacing={2} // Adjust spacing between images
+          imageContainerStyle={styles.photoContainer}
+        />
       ) : (
-        <Text style={{ textAlign: "center", fontSize: 20, marginTop: 20 }}>
-          No photos to display
-        </Text>
+        <Text style={styles.noPhotosText}>No photos to display</Text>
       )}
+
     </ScrollView>
   );
 };
@@ -195,13 +203,13 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
     color: "#666",
+    marginBottom: -45,
   },
   infoContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    width: "80%", // Adjusts width for consistent layout
-    marginTop: 10,
+    width: "80%",
     marginLeft: 15,
     marginBottom: 10,
   },
@@ -214,7 +222,7 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 16,
     color: "#000",
-    marginLeft: 8, // Adds space between icon and text
+    marginLeft: 5, 
   },
   editButton: {
     backgroundColor: "#000",
@@ -228,7 +236,38 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 18,
   },
+  photosGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    padding: IMAGE_MARGIN,
+  },
+  photoContainer: {
+    marginBottom: IMAGE_MARGIN,
+    borderRadius: 10,
+    overflow: "hidden",
+    marginTop: 10
+  },
+  largePhoto: {
+    width: width * 0.65 - IMAGE_MARGIN, // Larger photo for staggered layout
+    height: 250,
+  },
+  smallPhoto: {
+    width: width * 0.3 - IMAGE_MARGIN, // Smaller photo
+    height: 150,
+  },
+  photo: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  noPhotosText: {
+    textAlign: "center",
+    fontSize: 18,
+    marginTop: 20,
+    color: "#666",
+  },
+
 });
 
 export default ProfileScreen;
-

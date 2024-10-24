@@ -11,12 +11,13 @@ import {
   Dimensions,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator"; // Correct import
+import * as ImageManipulator from "expo-image-manipulator"; 
 import { useRouter } from "expo-router";
 import { auth, db, storage } from "../configs/FirebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import * as SplashScreen from "expo-splash-screen";
+
 
 SplashScreen.preventAutoHideAsync();
 
