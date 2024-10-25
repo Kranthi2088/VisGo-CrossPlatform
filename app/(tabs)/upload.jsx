@@ -6,14 +6,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  TextInput,
   StyleSheet,
   Dimensions,
+  ScrollView,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router"; 
+import * as ImageManipulator from "expo-image-manipulator";
+import { useRouter } from "expo-router";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, updateDoc, arrayUnion } from "firebase/firestore";
-import { storage, db, auth } from "../../configs/FirebaseConfig"; 
+import { collection, doc, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { storage, db, auth } from "../../configs/FirebaseConfig";
 import { useFonts, Poppins_400Regular, Poppins_700Bold } from "@expo-google-fonts/poppins";
 
 const { width } = Dimensions.get("window");
@@ -21,9 +24,12 @@ const { width } = Dimensions.get("window");
 const UploadScreen = () => {
   const router = useRouter();
   const user = auth.currentUser;
+
   const [imageUri, setImageUri] = useState(null);
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [imageDimensions, setImageDimensions] = useState({ width: 1, height: 1 }); 
+  const [imageDimensions, setImageDimensions] = useState({ width: 1, height: 1 });
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -40,11 +46,17 @@ const UploadScreen = () => {
       });
 
       if (!result.canceled) {
-        const { width, height, uri } = result.assets[0];
+        const { uri, width, height } = result.assets[0];
 
-        // Ensure width and height have valid values
+        // Compress the image
+        const compressedImage = await ImageManipulator.manipulateAsync(
+          uri,
+          [],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        );
+
         setImageDimensions({ width: width || 1, height: height || 1 });
-        setImageUri(uri);
+        setImageUri(compressedImage.uri);
       }
     } catch (error) {
       console.error("Error picking image:", error);
@@ -67,19 +79,37 @@ const UploadScreen = () => {
       const response = await fetch(imageUri);
       const blob = await response.blob();
 
-      // Upload image to Firebase storage
+      // Upload the image to Firebase storage
       await uploadBytes(storageRef, blob);
       const downloadURL = await getDownloadURL(storageRef);
 
-      // Save URL to Firestore
-      const docRef = doc(db, "users", user.uid);
-      await updateDoc(docRef, {
-        uploadedPhotos: arrayUnion(downloadURL),
+      // Generate a new post ID
+      const postId = doc(collection(db, "posts")).id;
+
+      // Prepare post data with description, location, and image URL
+      const postData = {
+        imageUrl: downloadURL,
+        description: description,
+        location: location,
+        userId: user.uid,
+        timestamp: new Date(),
+      };
+
+      // Save the post to Firestore
+      const postRef = doc(db, "posts", postId);
+      await setDoc(postRef, postData);
+
+      // Update the user's document to include the new postId
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        postIds: arrayUnion(postId),
       });
 
-      Alert.alert("Success", "Image uploaded successfully!");
-      setImageUri(null); 
-      router.replace("/(tabs)/profile"); 
+      Alert.alert("Success", "Image uploaded and post created successfully!");
+      setImageUri(null);
+      setDescription("");
+      setLocation("");
+      router.replace("/(tabs)/profile");
     } catch (error) {
       console.error("Error uploading image:", error);
       Alert.alert("Upload Failed", "Failed to upload image. Please try again.");
@@ -93,6 +123,7 @@ const UploadScreen = () => {
   }
 
   return (
+    <ScrollView >
     <View style={styles.container}>
       <Text style={styles.title}>Upload Your Photo</Text>
 
@@ -104,7 +135,7 @@ const UploadScreen = () => {
             styles.imagePreview,
             {
               aspectRatio:
-                imageDimensions.width / imageDimensions.height || 1, // Ensure aspect ratio is valid
+                imageDimensions.width / imageDimensions.height || 1, // Ensure valid aspect ratio
             },
           ]}
         />
@@ -113,6 +144,24 @@ const UploadScreen = () => {
           <Text style={styles.placeholderText}>No Image Selected</Text>
         </View>
       )}
+
+      {/* Description Input */}
+      <TextInput
+        value={description}
+        onChangeText={setDescription}
+        placeholder="Add a description..."
+        placeholderTextColor="#aaa"
+        style={styles.input}
+      />
+
+      {/* Location Input */}
+      <TextInput
+        value={location}
+        onChangeText={setLocation}
+        placeholder="Add a location..."
+        placeholderTextColor="#aaa"
+        style={styles.input}
+      />
 
       {/* Pick Image Button */}
       <TouchableOpacity style={styles.pickButton} onPress={pickImage}>
@@ -135,6 +184,7 @@ const UploadScreen = () => {
         )}
       </TouchableOpacity>
     </View>
+    </ScrollView>
   );
 };
 
@@ -171,6 +221,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
     resizeMode: "contain",
+  },
+  input: {
+    width: width - 40,
+    height: 50,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    marginVertical: 10,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 16,
   },
   pickButton: {
     backgroundColor: "#000",

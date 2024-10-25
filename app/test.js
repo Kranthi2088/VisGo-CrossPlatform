@@ -7,15 +7,16 @@
 //   StyleSheet,
 //   Dimensions,
 //   StatusBar,
+//   ScrollView,
 //   Alert,
 // } from "react-native";
 // import { useRouter } from "expo-router";
 // import { auth, db } from "../../configs/FirebaseConfig";
-// import { doc, getDoc } from "firebase/firestore";
-// import MasonryList from "react-native-masonry-list"; // Make sure it's installed
+// import { collection, query, where, getDocs } from "firebase/firestore";
 // import { MaterialCommunityIcons } from "@expo/vector-icons";
+// import MasonryList from "react-native-masonry-list";
 
-// const { width } = Dimensions.get("window");
+// const IMAGE_MARGIN = 10;
 
 // const ProfileScreen = () => {
 //   const router = useRouter();
@@ -26,23 +27,20 @@
 //     bio: "",
 //     profilePhoto: "",
 //     coverPhoto: "",
-//     uploadedPhotos: [],
 //   });
+//   const [uploadedPhotos, setUploadedPhotos] = useState([]); // Store user's post images
+//   const [loading, setLoading] = useState(true);
 
 //   useEffect(() => {
 //     const fetchUserData = async () => {
 //       if (user) {
 //         try {
-//           const docRef = doc(db, "users", user.uid);
-//           const docSnap = await getDoc(docRef);
+//           // Fetch user data from the 'users' collection
+//           const userDocRef = doc(db, "users", user.uid);
+//           const userDocSnap = await getDoc(userDocRef);
 
-//           if (docSnap.exists()) {
-//             const data = docSnap.data();
-//             setUserData((prevState) => ({
-//               ...prevState,
-//               ...data,
-//               uploadedPhotos: data.uploadedPhotos || [],
-//             }));
+//           if (userDocSnap.exists()) {
+//             setUserData(userDocSnap.data());
 //           } else {
 //             console.log("No user data found");
 //           }
@@ -53,11 +51,34 @@
 //       }
 //     };
 
+//     const fetchUserPosts = async () => {
+//       if (user) {
+//         try {
+//           // Query posts collection for posts created by the logged-in user
+//           const postsQuery = query(
+//             collection(db, "posts"),
+//             where("userId", "==", user.uid)
+//           );
+
+//           const querySnapshot = await getDocs(postsQuery);
+//           const photos = querySnapshot.docs.map((doc) => doc.data().imageUrl); // Extract image URLs
+
+//           setUploadedPhotos(photos);
+//         } catch (error) {
+//           console.error("Error fetching user posts:", error);
+//           Alert.alert("Error", "Failed to fetch user posts");
+//         } finally {
+//           setLoading(false);
+//         }
+//       }
+//     };
+
 //     fetchUserData();
+//     fetchUserPosts();
 //   }, [user]);
 
 //   return (
-//     <View style={styles.container}>
+//     <ScrollView style={styles.container}>
 //       <StatusBar hidden />
 
 //       {/* Cover Photo */}
@@ -69,13 +90,14 @@
 //         }
 //         style={styles.coverPhoto}
 //       />
-//       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-//         <Image source={{ uri: userData.profilePhoto }} style={styles.profilePhoto} />
+//       <View style={{ flexDirection: "row", alignItems: "center" }}>
+//         <Image
+//           source={{ uri: userData.profilePhoto }}
+//           style={styles.profilePhoto}
+//         />
 //         <View style={styles.statsContainer}>
 //           <View style={styles.stat}>
-//             <Text style={styles.statNumber}>
-//               {userData.uploadedPhotos.length}
-//             </Text>
+//             <Text style={styles.statNumber}>{uploadedPhotos.length}</Text>
 //             <Text style={styles.statLabel}>Posts</Text>
 //           </View>
 //           <View style={styles.stat}>
@@ -89,7 +111,9 @@
 //         </View>
 //       </View>
 
-//       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+//       <View
+//         style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}
+//       >
 //         <Image
 //           source={
 //             userData.profilePhoto
@@ -99,7 +123,9 @@
 //           style={styles.profileImage}
 //         />
 //         <View style={{ marginLeft: 25, flex: 1, marginTop: 10 }}>
-//           <Text style={styles.username}>{userData.username || "Username"}</Text>
+//           <Text style={styles.username}>
+//             {userData.username || "Username"}
+//           </Text>
 //           <Text style={styles.bio}>{userData.bio || "Bio goes here..."}</Text>
 //         </View>
 //       </View>
@@ -107,7 +133,9 @@
 //       <View style={styles.infoContainer}>
 //         <View style={styles.infoItem}>
 //           <MaterialCommunityIcons name="calendar" size={24} color="black" />
-//           <Text style={styles.infoText}>{userData.dateOfBirth || "Date of Birth"}</Text>
+//           <Text style={styles.infoText}>
+//             {userData.dateOfBirth || "Date of Birth"}
+//           </Text>
 //         </View>
 
 //         <View style={styles.infoItem}>
@@ -123,11 +151,12 @@
 //         <Text style={styles.editButtonText}>Edit Profile</Text>
 //       </TouchableOpacity>
 
-//       {userData.uploadedPhotos.length > 0 ? (
+//       {/* Photos Grid Section */}
+//       {loading ? (
+//         <Text style={styles.noPhotosText}>Loading photos...</Text>
+//       ) : uploadedPhotos.length > 0 ? (
 //         <MasonryList
-//           images={userData.uploadedPhotos.map((photo) => ({
-//             uri: photo,
-//           }))}
+//           images={uploadedPhotos.map((photo) => ({ uri: photo }))}
 //           columns={2} // Two columns for masonry layout
 //           spacing={2} // Adjust spacing between images
 //           imageContainerStyle={styles.photoContainer}
@@ -135,11 +164,14 @@
 //       ) : (
 //         <Text style={styles.noPhotosText}>No photos to display</Text>
 //       )}
-//     </View>
+//     </ScrollView>
 //   );
 // };
 
+// const { width } = Dimensions.get("window");
+
 // const styles = StyleSheet.create({
+//   // ... same styles as before
 //   container: {
 //     flex: 1,
 //     backgroundColor: "#fff",
@@ -149,76 +181,33 @@
 //     height: 200,
 //     resizeMode: "cover",
 //   },
-//   profilePhoto: {
-//     width: 120,
-//     height: 120,
-//     borderRadius: 60,
-//     borderWidth: 3,
-//     borderColor: "#fff",
-//     alignSelf: "flex-start",
-//     marginTop: -40,
-//     marginLeft: 20,
-//   },
 //   statsContainer: {
 //     flexDirection: "row",
 //     alignItems: "center",
 //     marginVertical: 10,
 //     marginHorizontal: 25,
 //   },
-//   stat: {
-//     alignItems: "center",
-//     justifyContent: "space-around",
-//     marginHorizontal: 15,
-//   },
-//   statNumber: {
-//     fontSize: 20,
-//     fontWeight: "bold",
-//   },
-//   statLabel: {
-//     fontSize: 14,
-//     color: "#666",
-//   },
-//   infoContainer: {
-//     flexDirection: "row",
-//     justifyContent: "space-between",
-//     alignItems: "center",
-//     width: "80%",
-//     marginLeft: 15,
-//     marginBottom: 10,
-//   },
-//   infoItem: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     marginHorizontal: 10,
-//   },
-//   infoText: {
-//     fontFamily: "Poppins_400Regular",
-//     fontSize: 16,
-//     color: "#000",
-//     marginLeft: 5,
-//   },
-//   editButton: {
-//     backgroundColor: "#000",
-//     borderRadius: 10,
-//     paddingVertical: 15,
-//     marginHorizontal: 20,
-//     alignItems: "center",
-//     marginTop: 10,
-//   },
-//   editButtonText: {
-//     color: "#fff",
-//     fontWeight: "bold",
-//     fontSize: 18,
-//   },
-//   photoContainer: {
-//     borderRadius: 10,
-//     overflow: "hidden",
+//   profilePhoto: {
+//     width: 120,
+//     height: 120,
+//     borderRadius: 90,
+//     borderWidth: 3,
+//     borderColor: "#fff",
+//     alignSelf: "flex-start",
+//     marginTop: -40,
+//     marginLeft: 20,
 //   },
 //   noPhotosText: {
 //     textAlign: "center",
 //     fontSize: 18,
 //     marginTop: 20,
 //     color: "#666",
+//   },
+//   photoContainer: {
+//     marginBottom: IMAGE_MARGIN,
+//     borderRadius: 5,
+//     overflow: "hidden",
+//     marginTop: 10,
 //   },
 // });
 

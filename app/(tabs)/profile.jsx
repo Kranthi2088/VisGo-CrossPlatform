@@ -8,14 +8,14 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
-  FlatList,
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { auth, db } from "../../configs/FirebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"; 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MasonryList from "react-native-masonry-list";
+import { RefreshControl } from "react-native";
 
 const IMAGE_MARGIN = 10;
 
@@ -28,46 +28,88 @@ const ProfileScreen = () => {
     bio: "",
     profilePhoto: "",
     coverPhoto: "",
-    uploadedPhotos: [], // Add an empty array for photos initially
+    
   });
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (user) {
-        try {
-          const docRef = doc(db, "users", user.uid);
-          const docSnap = await getDoc(docRef);
+  const [uploadedPhotos, setUploadedPhotos] = useState([]); // Store user's post images
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setUserData((prevState) => ({
-              ...prevState,
-              ...data,
-              uploadedPhotos: data.uploadedPhotos || [], // Handle case where photos might not exist yet
-            }));
-          } else {
-            console.log("No user data found");
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-          Alert.alert("Error", "Failed to fetch user data");
+  
+  const fetchUserData = async () => {
+    if (user) {
+      try {
+        // Fetch user data from the 'users' collection
+        const userDocRef = doc(db, "users", user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          setUserData(userDocSnap.data());
+        } else {
+          console.log("No user data found");
         }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        Alert.alert("Error", "Failed to fetch user data");
       }
-    };
+    }
+  };
 
-    fetchUserData();
+  const fetchUserPosts = async () => {
+    if (user) {
+      try {
+        // Query posts collection for posts created by the logged-in user
+        const postsQuery = query(
+          collection(db, "posts"),
+          where("userId", "==", user.uid)
+        );
+
+        const querySnapshot = await getDocs(postsQuery);
+        const photos = querySnapshot.docs.map((doc) => doc.data().imageUrl); // Extract image URLs
+
+        setUploadedPhotos(photos);
+      } catch (error) {
+        console.error("Error fetching user posts:", error);
+        Alert.alert("Error", "Failed to fetch user posts");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const fetchAllData = async () => {
+    setLoading(true); // Show loading indicator during refresh
+    setUploadedPhotos([]); // Clear previous photos to prevent stale data
+
+    try {
+      await fetchUserData();  // Fetch user data
+      await fetchUserPosts(); // Fetch posts
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      Alert.alert("Error", "Failed to refresh data");
+    } finally {
+      setLoading(false); // Stop loading indicator
+      setRefreshing(false); // Stop refreshing if called by pull-to-refresh
+    }
+  };
+
+  useEffect(() => {
+    fetchAllData(); // Fetch data initially when component mounts
   }, [user]);
 
-  const renderPhotoItem = ({ item }) => (
-    <View style={styles.photoContainer}>
-      <Image source={{ uri: item }} style={styles.photo} />
-      {/* If you need to add captions later, you can handle them separately */}
-      {/* <Text style={styles.photoText}>{item.caption || "No Caption"}</Text> */}
-    </View>
-  );
-
+  const onRefresh = async () => {
+    setRefreshing(true); // Start refreshing
+    await fetchAllData(); // Re-fetch all data on pull down
+  };
+  
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+  style={styles.container}
+  refreshControl={
+    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+  }
+>
+      
       <StatusBar hidden />
 
       {/* Cover Photo */}
@@ -134,12 +176,11 @@ const ProfileScreen = () => {
       </TouchableOpacity>
 
       {/* Photos Grid Section */}
-      {/* Photos Grid Section */}
-      {userData.uploadedPhotos.length > 0 ? (
+      {loading ? (
+        <Text style={styles.noPhotosText}>Loading photos...</Text>
+      ) : uploadedPhotos.length > 0 ? (
         <MasonryList
-          images={userData.uploadedPhotos.map((photo) => ({
-            uri: photo,
-          }))}
+          images={uploadedPhotos.map((photo) => ({ uri: photo }))}
           columns={2} // Two columns for masonry layout
           spacing={2} // Adjust spacing between images
           imageContainerStyle={styles.photoContainer}
@@ -244,7 +285,7 @@ const styles = StyleSheet.create({
   },
   photoContainer: {
     marginBottom: IMAGE_MARGIN,
-    borderRadius: 10,
+    borderRadius: 5,
     overflow: "hidden",
     marginTop: 10
   },
