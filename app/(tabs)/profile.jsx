@@ -38,12 +38,13 @@ const ProfileScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const navigateToPostDetails = (post) => {
-    console.log("Navigating to post details with:", post); // Debug to ensure function is called
+    console.log("Navigating to post details with:", post);
     router.push({
       pathname: "../postdetails",
-      params: { postData: JSON.stringify(post) },
+      params: { postData: JSON.stringify(post) }, // Convert post data to a string
     });
   };
+  
 
 
   // Utility function to download and cache images locally
@@ -119,19 +120,25 @@ const ProfileScreen = () => {
       try {
         const cachedPhotos = await getData("userPosts");
         if (cachedPhotos) setUploadedPhotos(cachedPhotos);
-
+  
         const postsQuery = query(
           collection(db, "posts"),
           where("userId", "==", user.uid)
         );
-
+  
         const querySnapshot = await getDocs(postsQuery);
         const photos = await Promise.all(
-          querySnapshot.docs.map((doc) =>
-            downloadAndCacheImage(doc.data().imageUrl)
-          )
+          querySnapshot.docs.map(async (doc) => {
+            const data = doc.data();
+            const cachedImageUrl = await downloadAndCacheImage(data.imageUrl);
+            return {
+              id: doc.id,
+              ...data,
+              cachedImageUrl,
+            };
+          })
         );
-
+  
         setUploadedPhotos(photos);
         await storeData("userPosts", photos);
       } catch (error) {
@@ -229,14 +236,15 @@ const ProfileScreen = () => {
         <Text style={styles.noPhotosText}>Loading photos...</Text>
       ) : uploadedPhotos.length > 0 ? (
         <MasonryList
-          images={uploadedPhotos.map((photo) => ({
-            uri: photo,
-            onPress: () => navigateToPostDetails(photo),
-          }))}
-          columns={2}
-          spacing={2}
-          imageContainerStyle={styles.photoContainer}
-        />
+  images={uploadedPhotos.map((post) => ({
+    uri: post.cachedImageUrl,
+    data: post,
+  }))}
+  columns={2}
+  spacing={2}
+  imageContainerStyle={styles.photoContainer}
+  onPressImage={(item) => navigateToPostDetails(item.data)}
+/>
       ) : (
         <Text style={styles.noPhotosText}>No photos to display</Text>
       )}
