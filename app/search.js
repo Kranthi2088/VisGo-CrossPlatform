@@ -11,8 +11,12 @@ import {
 import { db, auth } from "../configs/FirebaseConfig";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons'; // Make sure you have expo vector icons installed
+
 
 const SearchUsersScreen = () => {
+  const navigation = useNavigation();
   const [searchText, setSearchText] = useState("");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,19 +27,29 @@ const SearchUsersScreen = () => {
       setUsers([]);
       return;
     }
-
+  
     setLoading(true);
     try {
       const usersRef = collection(db, "users");
-      const q = query(usersRef, where("username", ">=", searchText), where("username", "<=", searchText + "\uf8ff"));
-      const querySnapshot = await getDocs(q);
-
+      const searchTextLower = searchText.toLowerCase();
+      const querySnapshot = await getDocs(usersRef);
+  
       const results = [];
       querySnapshot.forEach((doc) => {
-        if (doc.id !== auth.currentUser.uid) { // Exclude the current user
-          results.push({ id: doc.id, ...doc.data() });
+        const userData = doc.data();
+        if (
+          doc.id !== auth.currentUser.uid && // Exclude current user
+          userData.username.toLowerCase().includes(searchTextLower)
+        ) {
+          results.push({ 
+            id: doc.id, 
+            ...userData,
+            profilePhoto: userData.profilePhoto || null// Ensure profilePhoto is included
+            
+          });
         }
       });
+      console.log(results);
       setUsers(results);
     } catch (error) {
       console.error("Error searching for users:", error);
@@ -55,20 +69,29 @@ const SearchUsersScreen = () => {
   }, [searchText]);
 
   const renderItem = ({ item }) => (
-    <View style={styles.userContainer}>
-      <Image source={{ uri: item.profilePhoto || "https://picsum.photos/200" }} style={styles.profileImage} />
+    <TouchableOpacity
+      style={styles.userContainer}
+      onPress={() => navigation.navigate('user-profile', { userId: item.id })} // Pass userId as a parameter
+    >
+      <Image 
+        source={{ uri: item.profilePhoto || "https://picsum.photos/200" }} 
+        style={styles.profileImage}
+      />
       <View style={styles.userInfo}>
         <Text style={styles.username}>{item.username}</Text>
         <Text style={styles.bio} numberOfLines={1}>{item.bio || "No bio available"}</Text>
       </View>
-      <TouchableOpacity style={styles.followButton} onPress={() => followUser(item.id)}>
-        <Text style={styles.followButtonText}>Follow</Text>
-      </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Search Users</Text>
+      </View>
       <View style={styles.searchContainer}>
         <MaterialCommunityIcons name="magnify" size={24} color="#888" style={styles.searchIcon} />
         <TextInput
@@ -94,7 +117,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingTop: 100,
+    paddingTop: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 50, // Adjust this value based on your status bar height
+    paddingBottom: 10,
+    paddingHorizontal: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  backButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 15,
   },
   searchContainer: {
     flexDirection: "row",
@@ -104,6 +145,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
     paddingHorizontal: 10,
     marginBottom: 20,
+    top:10,
   },
   searchIcon: {
     marginRight: 8,

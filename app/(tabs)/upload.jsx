@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   imagePreview: {
-    width: width - 40,
+    width: width-50 ,
     borderRadius: 10,
     marginBottom: 20,
     resizeMode: "contain",

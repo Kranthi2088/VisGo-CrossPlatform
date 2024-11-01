@@ -241,7 +241,7 @@ const ProfileScreen = () => {
     data: post,
   }))}
   columns={2}
-  spacing={2}
+  spacing={0.5}
   imageContainerStyle={styles.photoContainer}
   onPressImage={(item) => navigateToPostDetails(item.data)}
 />

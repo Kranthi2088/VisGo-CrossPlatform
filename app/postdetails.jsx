@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     color: "#888",
   },
   postImage: {
-    width,
+    width: "100%",
     height: width,
     resizeMode: "cover",
   },
