@@ -61,7 +61,11 @@ const PostItem = ({ postData, username, profilePhoto, postId }) => {
       </View>
 
       {/* Post Image */}
-      <Image source={{ uri: postData.imageUrl }} style={styles.postImage} />
+      {postData.textContent ? (
+        <Text style={styles.textContent}>{postData.textContent}</Text>
+      ) : (
+        <Image source={{ uri: postData.imageUrl }} style={styles.postImage} />
+      )}
 
       {/* Post Actions */}
       <View style={styles.actionsContainer}>
@@ -154,6 +158,11 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 600,
     resizeMode: "cover",
+  },
+  postText: {
+    fontSize: 16,
+    color: "#333",
+    marginVertical: 10,
   },
   actionsContainer: {
     flexDirection: "row",

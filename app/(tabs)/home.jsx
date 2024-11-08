@@ -4,6 +4,7 @@ import { db, auth } from "../../configs/FirebaseConfig";
 import { collection, getDocs, query, where, orderBy, getDoc, doc, Timestamp } from "firebase/firestore";
 import PostItem from "../PostItem";
 import CreatePost from "../addpost";
+import StoryBar from "../storybar";
 
 const HomeScreen = () => {
   const [posts, setPosts] = useState([]);
@@ -99,6 +100,7 @@ const HomeScreen = () => {
 
   return (
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+      <StoryBar />
       {/* Pass user data to CreatePost component */}
       <CreatePost
         profileImage={userData?.profilePhoto || "https://picsum.photos/200"}
