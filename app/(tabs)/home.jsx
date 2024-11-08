@@ -111,6 +111,7 @@ const HomeScreen = () => {
             key={post.id}
             postData={post}
             username={post.username}
+            postId={post.id}
             profilePhoto={post.profilePhoto}
           />
         ))

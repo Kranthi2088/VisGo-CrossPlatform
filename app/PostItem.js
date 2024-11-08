@@ -1,60 +1,135 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image, StyleSheet, TouchableOpacity, TextInput, Alert } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { db } from "../configs/FirebaseConfig";
-import { doc, updateDoc, arrayUnion, increment } from "firebase/firestore";
+import { db, auth } from "../configs/FirebaseConfig";
+import { doc, collection, addDoc, deleteDoc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
 
 const PostItem = ({ postData, username, profilePhoto, postId }) => {
   const [liked, setLiked] = useState(false);
-  const [likes, setLikes] = useState(postData.likes || 0);
-  const [comments, setComments] = useState(postData.comments || []);
+  const [likesCount, setLikesCount] = useState(0);
+  const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
 
+  const currentUser = auth.currentUser;
+
   useEffect(() => {
-    setLikes(postData.likes || 0);
-    setComments(postData.comments || []);
-  }, [postData]);
+    if (!postId) return;
+
+    const likesRef = collection(db, "posts", postId, "likes");
+    const commentsRef = collection(db, "posts", postId, "comments");
+
+    // Add error handling to each listener
+    const unsubscribeLikes = onSnapshot(
+      likesRef,
+      (snapshot) => {
+        setLikesCount(snapshot.size);
+        if (currentUser) {
+          setLiked(snapshot.docs.some((doc) => doc.id === currentUser.uid));
+        }
+      },
+      (error) => {
+        console.error("Error fetching likes snapshot:", error);
+        Alert.alert("Error", "Failed to fetch likes.");
+      }
+    );
+
+    const unsubscribeComments = onSnapshot(
+      commentsRef,
+      (snapshot) => {
+        const commentsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setComments(commentsData);
+      },
+      (error) => {
+        console.error("Error fetching comments snapshot:", error);
+        Alert.alert("Error", "Failed to fetch comments.");
+      }
+    );
+
+    return () => {
+      unsubscribeLikes();
+      unsubscribeComments();
+    };
+  }, [postId]);
 
   const handleLike = async () => {
-    const newLikedStatus = !liked;
-    setLiked(newLikedStatus);
+    if (!currentUser) {
+      Alert.alert("Error", "You must be logged in to like posts.");
+      return;
+    }
+
+    const likeRef = doc(db, "posts", postId, "likes", currentUser.uid);
 
     try {
-      const postRef = doc(db, "posts", postId);
-      await updateDoc(postRef, {
-        likes: increment(newLikedStatus ? 1 : -1), // Increment or decrement likes
-      });
-      setLikes(newLikedStatus ? likes + 1 : likes - 1);
+      if (liked) {
+        // Unlike
+        await deleteDoc(likeRef);
+      } else {
+        // Like
+        await setDoc(likeRef, {
+          userId: currentUser.uid,
+          timestamp: new Date(),
+        });
+      }
+      setLiked(!liked);
     } catch (error) {
-      console.error("Error updating likes:", error);
-      Alert.alert("Error", "Failed to update like status.");
+      console.error("Error toggling like:", error);
+      Alert.alert("Error", "Failed to update like.");
     }
   };
 
   const handleAddComment = async () => {
-    if (newComment.trim() === "") return;
-
-    const commentData = {
-      text: newComment,
-      username: "YourUsername", // replace with actual user's username if available
-    };
-
+    if (!currentUser) {
+      Alert.alert("Error", "You must be logged in to comment.");
+      return;
+    }
+  
+    if (!newComment.trim()) return;
+  
     try {
-      const postRef = doc(db, "posts", postId);
-      await updateDoc(postRef, {
-        comments: arrayUnion(commentData),
-      });
-      setComments((prevComments) => [...prevComments, commentData]);
-      setNewComment("");
+      // Fetch the current user's username from Firestore
+      const userRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userRef);
+  
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const commentsRef = collection(db, "posts", postId, "comments");
+  
+        await addDoc(commentsRef, {
+          userId: currentUser.uid,
+          username: userData.username || "Anonymous", // Use the fetched username
+          text: newComment,
+          timestamp: new Date(),
+        });
+  
+        setNewComment(""); // Clear input after adding comment
+      } else {
+        Alert.alert("Error", "User data not found.");
+      }
     } catch (error) {
       console.error("Error adding comment:", error);
       Alert.alert("Error", "Failed to add comment.");
     }
   };
+  
+
+  const handleDeleteComment = async (commentId) => {
+    if (!currentUser) {
+      Alert.alert("Error", "You must be logged in to delete comments.");
+      return;
+    }
+
+    try {
+      const commentRef = doc(db, "posts", postId, "comments", commentId);
+      await deleteDoc(commentRef);
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      Alert.alert("Error", "Failed to delete comment.");
+    }
+  };
 
   return (
     <View style={styles.postContainer}>
-      {/* Post Header with Username and Profile Picture */}
+      {/* Post Header */}
       <View style={styles.header}>
         <Image source={{ uri: profilePhoto }} style={styles.profileImage} />
         <Text style={styles.username}>{username}</Text>
@@ -66,17 +141,16 @@ const PostItem = ({ postData, username, profilePhoto, postId }) => {
       {/* Post Actions */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity onPress={handleLike}>
-          <Feather
-            name="heart"
-            size={24}
-            color={liked ? "red" : "black"}
-          />
+          <View style={styles.likeContainer}>
+          <Feather style={styles.likeButton} name="heart" size={24} color={liked ? "red" : "black"} />
+          <Text style={styles.likeCount}>{likesCount} likes</Text>
+          </View>
         </TouchableOpacity>
         <TouchableOpacity>
-          <Feather name="message-circle" size={24} color="black" />
+          <Feather style={styles.messageButton} name="message-circle" size={24} color="black" />
         </TouchableOpacity>
         <TouchableOpacity>
-          <Feather name="share" size={24} color="black" />
+          <Feather style={styles.shareButton} name="share" size={24} color="black" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.saveButton}>
           <Feather name="bookmark" size={24} color="black" />
@@ -85,7 +159,6 @@ const PostItem = ({ postData, username, profilePhoto, postId }) => {
 
       {/* Likes and Description */}
       <View style={styles.postDetails}>
-        <Text style={styles.likesText}>{likes} likes</Text>
         <Text style={styles.description}>
           <Text style={styles.username}>{username} </Text>
           {postData.description}
@@ -93,17 +166,22 @@ const PostItem = ({ postData, username, profilePhoto, postId }) => {
       </View>
 
       {/* Comments */}
-      {comments.length > 0 ? (
+      {comments.length > 0 && (
         <View style={styles.commentsContainer}>
-          {comments.map((comment, index) => (
-            <Text key={index} style={styles.comment}>
-              <Text style={styles.username}>{comment.username} </Text>
-              {comment.text}
-            </Text>
+          {comments.map((comment) => (
+            <View key={comment.id} style={styles.commentContainer}>
+              <Text style={styles.comment}>
+                <Text style={styles.username}>{comment.username} </Text>
+                {comment.text}
+              </Text>
+              {comment.userId === currentUser?.uid && (
+                <TouchableOpacity onPress={() => handleDeleteComment(comment.id)}>
+                  <Feather name="trash-2" size={16} color="red" />
+                </TouchableOpacity>
+              )}
+            </View>
           ))}
         </View>
-      ) : (
-        <Text style={styles.noCommentsText}>No comments yet</Text>
       )}
 
       {/* Add Comment Section */}
@@ -122,6 +200,8 @@ const PostItem = ({ postData, username, profilePhoto, postId }) => {
     </View>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   postContainer: {
@@ -152,57 +232,72 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: "100%",
-    height: 600,
+    height: 400,
     resizeMode: "cover",
   },
   actionsContainer: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    padding: 15,
-  },
-  saveButton: {
-    marginLeft: "auto",
-  },
-  postDetails: {
-    paddingHorizontal: 10,
-  },
-  likesText: {
-    fontWeight: "bold",
-    marginVertical: 5,
-  },
-  description: {
-    marginBottom: 10,
-  },
-  commentsContainer: {
-    paddingHorizontal: 10,
-    marginTop: 10,
-  },
-  comment: {
-    marginBottom: 5,
-  },
-  noCommentsText: {
-    color: "#888",
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-  },
-  addCommentContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
+    justifyContent: "space-between",
     paddingVertical: 10,
-    borderTopWidth: 1,
-    borderColor: "#eaeaea",
-  },
-  commentInput: {
-    flex: 1,
-    borderColor: "#eaeaea",
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    marginRight: 10,
-    color: "black",
-  },
+    paddingHorizontal:50 
+   },
+   likeButton:{
+     marginLeft :"auto"
+   },
+   messageButton:{
+     marginLeft :20,
+   },
+   shareButton:{
+     marginLeft :20,
+     },
+   saveButton:{
+     marginLeft :20,
+   },
+   likeContainer:{
+     flexDirection :"row",
+     alignItems :"center",
+     gap :5,
+   },
+   likeCount:{
+     textweight :"bold",
+   },
+   description:{
+     marginBottom :10,
+     left :10
+   },
+   commentsContainer:{
+     paddingHorizontal :10 ,
+     marginTop :10 
+   },
+   commentContainer:{
+     flexDirection :"row",
+     justifyContent :"space-between",
+     alignItems :"center",
+     marginBottom :5 
+   },
+   comment:{
+     flex :1 ,
+     fontSize :14 ,
+     color:"#333"
+   },
+   addCommentContainer:{
+     flexDirection :"row",
+     alignItems :"center",
+     paddingHorizontal :10 ,
+     paddingVertical :10 ,
+     borderTopWidth :1 ,
+     borderColor :"#eaeaea"
+   },
+   commentInput:{
+     flex :1 ,
+     borderColor :"#eaeaea",
+     borderWidth :1 ,
+     borderRadius :20 ,
+     paddingHorizontal :15 ,
+     paddingVertical :8 ,
+     marginRight :10 ,
+     color:"black"
+   }
 });
 
 export default PostItem;
