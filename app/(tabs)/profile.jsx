@@ -41,9 +41,16 @@ const ProfileScreen = () => {
     console.log("Navigating to post details with:", post);
     router.push({
       pathname: "../postdetails",
-      params: { postData: JSON.stringify(post) }, // Convert post data to a string
+      params: {
+        postId: post.id,
+        username: userData.username,
+        profilePhoto: userData.profilePhoto,
+        imageUrl: post.cachedImageUrl,
+        description: post.description, // Add other fields as needed
+      },
     });
   };
+  
   
 
 

@@ -5,6 +5,7 @@ import { db, auth } from "../configs/FirebaseConfig";
 import { doc, collection, addDoc, deleteDoc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
 
 const PostItem = ({ postData, username, profilePhoto, postId }) => {
+  console.log(postData,username,profilePhoto,postId);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [comments, setComments] = useState([]);
@@ -214,6 +215,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 3,
+    top :100
   },
   header: {
     flexDirection: "row",
