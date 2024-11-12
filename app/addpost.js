@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { db, auth } from "../configs/FirebaseConfig";
 
 
 
@@ -9,14 +11,34 @@ const CreatePost = ({ profileImage, onPost }) => {
   const router = useNavigation();
   const [postText, setPostText] = useState("");
 
-  const handlePost = () => {
-    if (postText.trim()) {
-      onPost(postText); // Pass the post text to a function for posting
-      setPostText(""); // Clear the input after posting
+  const handlePost = async () => {
+    const trimmedText = postText.trim();
+    if (trimmedText) {
+      try {
+        const post = {
+          textContent: trimmedText,
+          timestamp: Timestamp.now(),
+          userId: auth.currentUser?.uid,
+        };
+        
+        await addDoc(collection(db, "posts"), post);
+        onPost(); // Trigger refresh in HomeScreen or wherever necessary
+        setPostText(""); // Clear the input
+      } catch (error) {
+        console.error("Error posting:", error);
+        Alert.alert("Error", "Failed to create post.");
+      }
+    } else {
+      Alert.alert("Empty Post", "Please enter some text to post.");
     }
   };
+  
   const handleSearchPress = () => {
     router.push("search");
+  };
+
+  const handleOpenCamera = () => {
+    router.push("camerascreen"); // Make sure to register this screen in your navigator
   };
 
   return (
@@ -42,8 +64,8 @@ const CreatePost = ({ profileImage, onPost }) => {
 
       {/* Icons for image, video, location, and emoji */}
       <View style={styles.iconContainer}>
-        <TouchableOpacity>
-          <Feather name="image" size={24} color="#888" />
+      <TouchableOpacity onPress={handleOpenCamera} style={styles.icon}>
+          <Feather name="image" size={20} color="#000" />
         </TouchableOpacity>
         <TouchableOpacity>
           <Feather name="video" size={24} color="#888" />
@@ -66,8 +88,7 @@ const CreatePost = ({ profileImage, onPost }) => {
 const styles = StyleSheet.create({
   container: {
     padding: 15,
-    backgroundColor: "#f9f9f9",
-    marginBottom: 20,
+    backgroundColor: "#ffffff",
     borderRadius: 8,
   },
   inputContainer: {

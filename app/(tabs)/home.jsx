@@ -1,22 +1,22 @@
-import React, { useEffect, useState } from "react";
-import { View, ScrollView, Text, StyleSheet, RefreshControl, Alert } from "react-native";
+import React, { useEffect, useState, useRef,useCallback } from "react";
+import { View, Text, ScrollView, StyleSheet, RefreshControl, Alert, FlatList} from "react-native";
 import { db, auth } from "../../configs/FirebaseConfig";
 import { collection, getDocs, query, where, orderBy, getDoc, doc, Timestamp } from "firebase/firestore";
 import PostItem from "../PostItem";
 import CreatePost from "../addpost";
-
+import StoryBar from "../storybar";
+import CommentsModal from "../Commentsmodal"; // Make sure to import CommentsModal here
+import { BottomSheetBackdrop,bottomSheetModalRef } from "@gorhom/bottom-sheet";
 const HomeScreen = () => {
   const [posts, setPosts] = useState([]);
   const [userData, setUserData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showComments, setShowComments] = useState({ show: false, tick: 0 });
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const commentsModalRef = useRef(null);
 
-  // Function to handle posting
-  const handlePost = (text) => {
-    console.log("New post:", text);
-    // Add logic to handle creating a new post and refreshing the feed
-  };
-
-  // Fetch posts from the last 24 hours
+  // Fetch posts and user data
   const fetchPosts = async () => {
     try {
       const yesterdayTime = Timestamp.fromMillis(new Date().getTime() - 24 * 60 * 60 * 1000);
@@ -54,7 +54,6 @@ const HomeScreen = () => {
     }
   };
 
-  // Fetch current user's data for the profile photo and other details
   const fetchUserData = async () => {
     try {
       const userId = auth.currentUser?.uid;
@@ -74,51 +73,62 @@ const HomeScreen = () => {
     }
   };
 
+
   useEffect(() => {
     fetchUserData();
     fetchPosts();
   }, []);
 
-  // Refresh data on pull-to-refresh
-  const fetchAllData = async () => {
-    try {
-      await fetchUserData();
-      await fetchPosts();
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      Alert.alert("Error", "Failed to refresh data");
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchAllData();
+    await fetchUserData();
+    await fetchPosts();
+    setRefreshing(false);
+  }, []);
+
+  const handleOpenComments = (postId) => {
+    setSelectedPostId(postId);
+    setIsModalVisible(true);
   };
+  const handleCloseComments = () => {
+    setIsModalVisible(false);
+  };
+  const renderItem = useCallback(({ item }) => (
+    <PostItem
+      postData={item}
+      username={item.username}
+      profilePhoto={item.profilePhoto}
+      postId={item.id}
+      onOpenComments={handleOpenComments}
+    />
+  ), [handleOpenComments]);
+
+  const ListHeaderComponent = useCallback(() => (
+    <>
+      <StoryBar />
+      <CreatePost profileImage={userData?.profilePhoto || "https://picsum.photos/200"} onPost={fetchPosts} />
+    </>
+  ), [userData, fetchPosts]);
 
   return (
-    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-      {/* Pass user data to CreatePost component */}
-      <CreatePost
-        profileImage={userData?.profilePhoto || "https://picsum.photos/200"}
-        onPost={handlePost}
+    <View style={styles.container}>
+      <FlatList
+        data={posts}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={ListHeaderComponent}
+        ListEmptyComponent={<Text style={styles.noPostsText}>No posts found in the last 24 hours.</Text>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />
-
-      {posts.length > 0 ? (
-        posts.map((post) => (
-          <PostItem
-            key={post.id}
-            postData={post}
-            username={post.username}
-            postId={post.id}
-            profilePhoto={post.profilePhoto}
-          />
-        ))
-      ) : (
-        <Text style={styles.noPostsText}>No posts found in the last 24 hours.</Text>
+      {showComments.show && (
+        <CommentsModal
+        ref={commentsModalRef}
+        visible={isModalVisible}
+        onClose={handleCloseComments}
+        postId={selectedPostId}
+      />
       )}
-    </ScrollView>
+    </View>
   );
 };
 
@@ -126,9 +136,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-  },
-  createPost: {
-    backgroundColor: "#fff",
+    paddingBottom: 80, // Ensure content doesn’t get covered by bottom navigation
   },
   noPostsText: {
     textAlign: "center",
