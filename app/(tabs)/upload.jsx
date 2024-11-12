@@ -195,6 +195,7 @@ const styles = StyleSheet.create({
     padding: 20,
     justifyContent: "center",
     alignItems: "center",
+    bottom:60
   },
   title: {
     fontFamily: "Poppins_700Bold",
