@@ -1,74 +1,120 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity, TextInput, Alert } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, Image, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { db, auth } from "../configs/FirebaseConfig";
 import { doc, collection, addDoc, deleteDoc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
- 
-const PostItem = ({ postData, username, profilePhoto, postId }) => {
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) => {
+  const { textContent, imageUrl, postOwnerId } = postData;
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
- 
+  const [isSaved, setIsSaved] = useState(false);
   const currentUser = auth.currentUser;
- 
+
+
   useEffect(() => {
     if (!postId) return;
- 
+
     const likesRef = collection(db, "posts", postId, "likes");
     const commentsRef = collection(db, "posts", postId, "comments");
- 
-    // Add error handling to each listener
-    const unsubscribeLikes = onSnapshot(
-      likesRef,
-      (snapshot) => {
-        setLikesCount(snapshot.size);
-        if (currentUser) {
-          setLiked(snapshot.docs.some((doc) => doc.id === currentUser.uid));
-        }
-      },
-      (error) => {
-        console.error("Error fetching likes snapshot:", error);
-        Alert.alert("Error", "Failed to fetch likes.");
+
+    const unsubscribeLikes = onSnapshot(likesRef, (snapshot) => {
+      setLikesCount(snapshot.size);
+      if (currentUser) {
+        setLiked(snapshot.docs.some((doc) => doc.id === currentUser.uid));
       }
-    );
- 
-    const unsubscribeComments = onSnapshot(
-      commentsRef,
-      (snapshot) => {
-        const commentsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setComments(commentsData);
-      },
-      (error) => {
-        console.error("Error fetching comments snapshot:", error);
-        Alert.alert("Error", "Failed to fetch comments.");
+    });
+
+    const unsubscribeComments = onSnapshot(commentsRef, (snapshot) => {
+      const commentsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setComments(commentsData);
+    });
+
+    const checkIfSaved = async () => {
+      if (currentUser) {
+        const savedPostRef = doc(db, "users", currentUser.uid, "saved_posts", postId);
+        const savedPostSnap = await getDoc(savedPostRef);
+        setIsSaved(savedPostSnap.exists());
       }
-    );
- 
+    };
+
+    checkIfSaved();
+
     return () => {
       unsubscribeLikes();
       unsubscribeComments();
     };
   }, [postId]);
- 
+
+  const handleSavePost = async () => {
+    if (!currentUser) {
+      Alert.alert("Error", "You must be logged in to save posts.");
+      return;
+    }
+
+    const savedPostRef = doc(db, "users", currentUser.uid, "saved_posts", postId);
+
+    try {
+      if (isSaved) {
+        // If already saved, remove it
+        await deleteDoc(savedPostRef);
+        setIsSaved(false);
+      } else {
+        // If not saved, add it
+        await setDoc(savedPostRef, {
+          postId: postId,
+          postOwnerId: postOwnerId,
+          timestamp: new Date(),
+          // Optionally, include other relevant post data here (e.g., image URL, description)
+        });
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.error("Error saving post:", error);
+      Alert.alert("Error", "Failed to save post.");
+    }
+  };
+
+  // Function to create a notification in the notifications collection
+  const createNotification = async (type) => {
+    try {
+      if ( postOwnerId) { // Avoid notifying if the user is the post owner
+        await addDoc(collection(db, "notifications"), {
+          targetUserId: postOwnerId,
+          actorUserId: currentUser.uid,
+          postId: postId,
+          type: type, // 'like' or 'comment'
+          timestamp: new Date(),
+          read: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error creating notification:", error);
+    }
+  };
+
   const handleLike = async () => {
     if (!currentUser) {
       Alert.alert("Error", "You must be logged in to like posts.");
       return;
     }
- 
+
     const likeRef = doc(db, "posts", postId, "likes", currentUser.uid);
- 
+
     try {
       if (liked) {
-        // Unlike
         await deleteDoc(likeRef);
       } else {
-        // Like
         await setDoc(likeRef, {
           userId: currentUser.uid,
           timestamp: new Date(),
         });
+        // Create a notification for like
+        await createNotification("like");
       }
       setLiked(!liked);
     } catch (error) {
@@ -76,32 +122,33 @@ const PostItem = ({ postData, username, profilePhoto, postId }) => {
       Alert.alert("Error", "Failed to update like.");
     }
   };
- 
+
   const handleAddComment = async () => {
     if (!currentUser) {
       Alert.alert("Error", "You must be logged in to comment.");
       return;
     }
-  
+
     if (!newComment.trim()) return;
-  
+
     try {
-      // Fetch the current user's username from Firestore
       const userRef = doc(db, "users", currentUser.uid);
       const userDoc = await getDoc(userRef);
-  
+
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const commentsRef = collection(db, "posts", postId, "comments");
-  
+
         await addDoc(commentsRef, {
           userId: currentUser.uid,
-          username: userData.username || "Anonymous", // Use the fetched username
+          username: userData.username || "Anonymous",
           text: newComment,
           timestamp: new Date(),
         });
-  
+
         setNewComment(""); // Clear input after adding comment
+        // Create a notification for comment
+        await createNotification("comment");
       } else {
         Alert.alert("Error", "User data not found.");
       }
@@ -110,115 +157,62 @@ const PostItem = ({ postData, username, profilePhoto, postId }) => {
       Alert.alert("Error", "Failed to add comment.");
     }
   };
-  
- 
-  const handleDeleteComment = async (commentId) => {
-    if (!currentUser) {
-      Alert.alert("Error", "You must be logged in to delete comments.");
-      return;
-    }
- 
-    try {
-      const commentRef = doc(db, "posts", postId, "comments", commentId);
-      await deleteDoc(commentRef);
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-      Alert.alert("Error", "Failed to delete comment.");
-    }
-  };
- 
+
   return (
     <View style={styles.postContainer}>
-      {/* Post Header */}
+      {/* Header with Profile Image and Username */}
       <View style={styles.header}>
         <Image source={{ uri: profilePhoto }} style={styles.profileImage} />
-        <Text style={styles.username}>{username}</Text>
-      </View>
- 
-      {/* Post Image */}
-      <Image source={{ uri: postData.imageUrl }} style={styles.postImage} />
- 
-      {/* Post Actions */}
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity onPress={handleLike}>
-          <View style={styles.likeContainer}>
-          <Feather style={styles.likeButton} name="heart" size={24} color={liked ? "red" : "black"} />
-          <Text style={styles.likeCount}>{likesCount} likes</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Feather style={styles.messageButton} name="message-circle" size={24} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Feather style={styles.shareButton} name="share" size={24} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.saveButton}>
-          <Feather name="bookmark" size={24} color="black" />
-        </TouchableOpacity>
-      </View>
- 
-      {/* Likes and Description */}
-      <View style={styles.postDetails}>
-        <Text style={styles.description}>
-          <Text style={styles.username}>{username} </Text>
-          {postData.description}
-        </Text>
-      </View>
- 
-      {/* Comments */}
-      {comments.length > 0 && (
-        <View style={styles.commentsContainer}>
-          {comments.map((comment) => (
-            <View key={comment.id} style={styles.commentContainer}>
-              <Text style={styles.comment}>
-                <Text style={styles.username}>{comment.username} </Text>
-                {comment.text}
-              </Text>
-              {comment.userId === currentUser?.uid && (
-                <TouchableOpacity onPress={() => handleDeleteComment(comment.id)}>
-                  <Feather name="trash-2" size={16} color="red" />
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
+        <View>
+          <Text style={styles.username}>{username}</Text>
+          <Text style={styles.timestamp}>2h</Text>
         </View>
+      </View>
+
+      {/* Content Section */}
+      {textContent ? (
+        <Text style={styles.textContent}>{textContent}</Text>
+      ) : (
+        <Image source={{ uri: imageUrl }} style={styles.postImage} />
       )}
- 
-      {/* Add Comment Section */}
-      <View style={styles.addCommentContainer}>
-        <TextInput
-          style={styles.commentInput}
-          placeholder="Add a comment..."
-          placeholderTextColor="#888"
-          value={newComment}
-          onChangeText={setNewComment}
-        />
-        <TouchableOpacity onPress={handleAddComment}>
-          <Feather name="send" size={20} color="black" />
+
+      {/* Actions */}
+      <View style={styles.actionsContainer}>
+        <TouchableOpacity onPress={handleLike} style={styles.actionButton}>
+          <Feather name="heart" size={18} color={liked ? "red" : "black"} />
+          <Text style={styles.actionText}>{likesCount}</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => onOpenComments(postId)}>
+          <Text>{comments.length} Comments</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton}>
+          <Feather name="share" size={18} color="black" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleSavePost} style={styles.actionButton}>
+        <Feather name="bookmark" size={18} color={isSaved ? "blue" : "black"} />
+      </TouchableOpacity>
       </View>
     </View>
   );
 };
- 
- 
- 
+
 const styles = StyleSheet.create({
   postContainer: {
-    marginBottom: 20,
     backgroundColor: "#fff",
-    borderRadius: 8,
-    overflow: "hidden",
+    padding: 15,
+    marginVertical: 8,
+    borderRadius: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
+    shadowRadius: 4,
+    width: "95%",
+    alignSelf: "center",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
+    marginBottom: 10,
   },
   profileImage: {
     width: 40,
@@ -228,76 +222,41 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: "bold",
+    fontSize: 15,
+  },
+  timestamp: {
+    fontSize: 12,
+    color: "gray",
+  },
+  textContent: {
     fontSize: 16,
+    color: "#333",
+    lineHeight: 24,
+    marginVertical: 10,
   },
   postImage: {
     width: "100%",
-    height: 400,
-    resizeMode: "cover",
+    height: 300,
+    borderRadius: 10,
+    marginVertical: 10,
   },
   actionsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal:50
-   },
-   likeButton:{
-     marginLeft :"auto"
-   },
-   messageButton:{
-     marginLeft :20,
-   },
-   shareButton:{
-     marginLeft :20,
-     },
-   saveButton:{
-     marginLeft :20,
-   },
-   likeContainer:{
-     flexDirection :"row",
-     alignItems :"center",
-     gap :5,
-   },
-   likeCount:{
-     textweight :"bold",
-   },
-   description:{
-     marginBottom :10,
-     left :10
-   },
-   commentsContainer:{
-     paddingHorizontal :10 ,
-     marginTop :10
-   },
-   commentContainer:{
-     flexDirection :"row",
-     justifyContent :"space-between",
-     alignItems :"center",
-     marginBottom :5
-   },
-   comment:{
-     flex :1 ,
-     fontSize :14 ,
-     color:"#333"
-   },
-   addCommentContainer:{
-     flexDirection :"row",
-     alignItems :"center",
-     paddingHorizontal :10 ,
-     paddingVertical :10 ,
-     borderTopWidth :1 ,
-     borderColor :"#eaeaea"
-   },
-   commentInput:{
-     flex :1 ,
-     borderColor :"#eaeaea",
-     borderWidth :1 ,
-     borderRadius :20 ,
-     paddingHorizontal :15 ,
-     paddingVertical :8 ,
-     marginRight :10 ,
-     color:"black"
-   }
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#eaeaea",
+    marginTop: 10,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  actionText: {
+    fontSize: 14,
+    color: "gray",
+    marginLeft: 5,
+  },
 });
- 
+
 export default PostItem;

@@ -11,15 +11,16 @@ import {
   RefreshControl,
   Image,
 } from "react-native";
-import * as FileSystem from "expo-file-system"; // Import expo-file-system
-import AsyncStorage from "@react-native-async-storage/async-storage"; // Import AsyncStorage
+import * as FileSystem from "expo-file-system";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { auth, db } from "../../configs/FirebaseConfig";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"; 
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MasonryList from "react-native-masonry-list";
 
 const IMAGE_MARGIN = 10;
+const { width } = Dimensions.get("window");
 
 const ProfileScreen = () => {
   const router = useRouter();
@@ -38,33 +39,34 @@ const ProfileScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const navigateToPostDetails = (post) => {
-    console.log("Navigating to post details with:", post);
     router.push({
       pathname: "../postdetails",
-      params: { postData: JSON.stringify(post) }, // Convert post data to a string
+      params: {
+        postId: post.id,
+        username: userData.username,
+        profilePhoto: userData.profilePhoto,
+        imageUrl: post.cachedImageUrl,
+        description: post.description,
+        postdata: post,
+      },
     });
   };
-  
 
-
-  // Utility function to download and cache images locally
   const downloadAndCacheImage = async (url) => {
     try {
-      const filename = url.split("/").pop(); // Extract the file name from the URL
-      const path = `${FileSystem.cacheDirectory}${filename}`; // Set the cache path
+      const filename = url.split("/").pop();
+      const path = `${FileSystem.cacheDirectory}${filename}`;
 
       const fileInfo = await FileSystem.getInfoAsync(path);
       if (fileInfo.exists) {
-        console.log("Using cached image:", path);
-        return fileInfo.uri; // Return cached path if exists
+        return fileInfo.uri;
       }
 
-      console.log("Downloading image:", url);
-      const { uri } = await FileSystem.downloadAsync(url, path); // Download and cache the image
-      return uri; // Return the downloaded path
+      const { uri } = await FileSystem.downloadAsync(url, path);
+      return uri;
     } catch (error) {
       console.error("Error caching image:", error);
-      return url; // Return original URL as fallback
+      return url;
     }
   };
 
@@ -177,74 +179,58 @@ const ProfileScreen = () => {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <StatusBar hidden />
-      {/* Cover Photo */}
       <Image source={{ uri: userData.coverPhoto }} style={styles.coverPhoto} />
-      {/* Profile Info */}
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Image source={{ uri: userData.profilePhoto }} style={styles.profilePhoto} />
-        <View style={styles.statsContainer}>
-          <View style={styles.stat}>
-            <Text style={styles.statNumber}>{uploadedPhotos.length}</Text>
-            <Text style={styles.statLabel}>Posts</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statNumber}>100</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statNumber}>100</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </View>
+      <View style={styles.profileSection}>
+        <Image source={{ uri: userData.profilePhoto }} style={styles.profileImage} />
+        <View style={styles.infoSection}>
+          <Text style={styles.username}>{userData.username || "Username"}</Text>
+          <Text style={styles.bio}>{userData.bio || "Bio goes here..."}</Text>
         </View>
       </View>
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
-          <Image
-            source={
-              userData.profilePhoto
-                ? { uri: userData.profilePhoto }
-                : { uri: "https://picsum.photos/200/200" }
-            }
-            style={styles.profileImage}
-          />
-          <View style={{ marginLeft: 25, flex: 1, marginTop: 10 }}>
-            <Text style={styles.username}>{userData.username || "Username"}</Text>
-            <Text style={styles.bio}>{userData.bio || "Bio goes here..."}</Text>
-          </View>
+
+      <View style={styles.statsContainer}>
+        <View style={styles.stat}>
+          <Text style={styles.statNumber}>{uploadedPhotos.length}</Text>
+          <Text style={styles.statLabel}>Posts</Text>
         </View>
-  
-        <View style={styles.infoContainer}>
-          <View style={styles.infoItem}>
-            <MaterialCommunityIcons name="calendar" size={24} color="black" />
-            <Text style={styles.infoText}>{userData.dateOfBirth || "Date of Birth"}</Text>
-          </View>
-  
-          <View style={styles.infoItem}>
-            <MaterialCommunityIcons name="map-marker" size={24} color="black" />
-            <Text style={styles.infoText}>{userData.address || "Address"}</Text>
-          </View>
+        <View style={styles.stat}>
+          <Text style={styles.statNumber}>100</Text>
+          <Text style={styles.statLabel}>Followers</Text>
         </View>
-  
-        <TouchableOpacity
+        <View style={styles.stat}>
+          <Text style={styles.statNumber}>100</Text>
+          <Text style={styles.statLabel}>Following</Text>
+        </View>
+      </View>
+
+      <View style={styles.buttonsContainer}>
+      <TouchableOpacity
           style={styles.editButton}
           onPress={() => router.push("../edit-profile")}
         >
-          <Text style={styles.editButtonText}>Edit Profile</Text>
+          <Text style={styles.buttonText}>Edit Profile</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => router.push("../savedposts")}
+        >
+          <Text style={styles.buttonText}> Saved</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* Photos Grid Section */}
       {loading ? (
         <Text style={styles.noPhotosText}>Loading photos...</Text>
       ) : uploadedPhotos.length > 0 ? (
         <MasonryList
-  images={uploadedPhotos.map((post) => ({
-    uri: post.cachedImageUrl,
-    data: post,
-  }))}
-  columns={2}
-  spacing={0.5}
-  imageContainerStyle={styles.photoContainer}
-  onPressImage={(item) => navigateToPostDetails(item.data)}
-/>
+          images={uploadedPhotos.map((post) => ({
+            uri: post.cachedImageUrl,
+            data: post,
+          }))}
+          columns={2}
+          spacing={1}
+          imageContainerStyle={styles.photoContainer}
+          onPressImage={(item) => navigateToPostDetails(item.data)}
+        />
       ) : (
         <Text style={styles.noPhotosText}>No photos to display</Text>
       )}
@@ -252,22 +238,38 @@ const ProfileScreen = () => {
   );
 };
 
-const { width } = Dimensions.get("window");
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  coverPhoto: { width, height: 200, resizeMode: "cover" },
-  statsContainer: {
+  coverPhoto: { width: "100%", height: 200, resizeMode: "cover" },
+  profileSection: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 10,
-    marginHorizontal: 25,
+    marginTop: -50,
+    paddingHorizontal: 20,
   },
-  stat: {
-    alignItems: "center",
+  profileImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: "#fff",
+  },
+  infoSection: { marginLeft: 20, flex: 1 },
+  username: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#000",
+  },
+  bio: {
+    fontSize: 14,
+    color: "#666",
+  },
+  statsContainer: {
+    flexDirection: "row",
     justifyContent: "space-around",
-    marginHorizontal: 15,
+    marginVertical: 15,
   },
+  stat: { alignItems: "center" },
   statNumber: {
     fontSize: 20,
     fontWeight: "bold",
@@ -276,63 +278,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  profilePhoto: {
-    width: 120,
-    height: 120,
-    borderRadius: 90,
-    borderWidth: 3,
-    borderColor: "#fff",
-    marginTop: -40,
-    marginLeft: 20,
-  },
-  username: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 24,
-    color: "#000",
-    marginBottom: 5,
-  },
-  bio: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: "#666",
-    marginBottom: -45,
-  },
-  infoContainer: {
+  buttonsContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: "80%",
-    marginLeft: 15,
-    marginBottom: 10,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 10, // Spacing between items
-  },
-  infoText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 16,
-    color: "#000",
-    marginLeft: 5, 
+    justifyContent: "space-around",
+    marginHorizontal: 20,
+    marginBottom: 20,
   },
   editButton: {
     backgroundColor: "#000",
-    borderRadius: 10,
-    paddingVertical: 15,
-    marginHorizontal: 20,
-    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
   },
-  editButtonText: {
+  savedPostsButton: {
+    backgroundColor: "#1DA1F2",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  buttonText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 18,
+    fontSize: 16,
   },
-  statsContainer: { flexDirection: "row", marginVertical: 10 },
-  stat: { alignItems: "center", marginHorizontal: 15 },
-  noPhotosText: { textAlign: "center", marginTop: 20, fontSize: 18, color: "#666" },
-  photoContainer: { marginBottom: IMAGE_MARGIN, overflow: "hidden", marginTop: 10 },
+  noPhotosText: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 18,
+    color: "#666",
+  },
+  photoContainer: {
+    marginBottom: IMAGE_MARGIN,
+    borderRadius: 8,
+  },
 });
 
 export default ProfileScreen;
-

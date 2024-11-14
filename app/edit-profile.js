@@ -165,8 +165,62 @@ const EditProfile = () => {
         />
       </View>
 
-      {/* Other Inputs */}
-      {/* ... Continue with the rest of the fields as in your original code ... */}
+        {/** Email Input */}
+        <View style={styles.inputContainer}>
+        <Text style={styles.inputHeader}>Email</Text>
+        <TextInput
+          value={userData.email}
+          onChangeText={(text) => setUserData({ ...userData, email: text })}
+          style={styles.input}
+        />
+      </View>
+      {/** Bio Input */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputHeader}>Bio</Text>
+        <TextInput
+          value={userData.bio}
+          onChangeText={(text) => setUserData({ ...userData, bio: text })}
+          placeholder="Bio"
+          multiline={true}
+          numberOfLines={4}
+          style={styles.para_input} // Add the para_input classinput}
+        />
+      </View>
+      {/** Date of Birth Input */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputHeader}>Date of Birth</Text>
+        <TextInput
+          value={userData.dateOfBirth}
+          onChangeText={(text) =>
+            setUserData({ ...userData, dateOfBirth: text })
+          }
+          style={styles.input}
+        />
+      </View>
+      {/** Gender Input */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputHeader}>Gender</Text>
+        <TextInput
+          value={userData.gender}
+          onChangeText={(text) => setUserData({ ...userData, gender: text })}
+          style={styles.input}
+        />
+      </View>
+      {/** Address Input */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputHeader}>Address</Text>
+        <TextInput
+          value={userData.address}
+          onChangeText={(text) => setUserData({ ...userData, address: text })}
+          style={styles.para_input} // Add the para_input class
+        />
+      </View>
+      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+        <Text style={styles.saveButtonText}>Save Changes</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+        <Text style={styles.signOutButtonText}>Sign Out</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 };

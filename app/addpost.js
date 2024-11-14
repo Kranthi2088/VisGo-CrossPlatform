@@ -11,22 +11,25 @@ const CreatePost = ({ profileImage, onPost }) => {
   const router = useNavigation();
   const [postText, setPostText] = useState("");
 
-  const handlePost = async (text) => {
-    if (text.trim()) {
+  const handlePost = async () => {
+    const trimmedText = postText.trim();
+    if (trimmedText) {
       try {
         const post = {
-          textContent: text.trim(),
+          textContent: trimmedText,
           timestamp: Timestamp.now(),
           userId: auth.currentUser?.uid,
         };
         
         await addDoc(collection(db, "posts"), post);
-        onPost(); // Trigger refresh in HomeScreen
+        onPost(); // Trigger refresh in HomeScreen or wherever necessary
         setPostText(""); // Clear the input
       } catch (error) {
         console.error("Error posting:", error);
         Alert.alert("Error", "Failed to create post.");
       }
+    } else {
+      Alert.alert("Empty Post", "Please enter some text to post.");
     }
   };
   
