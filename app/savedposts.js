@@ -4,7 +4,7 @@ import { db, auth } from "../configs/FirebaseConfig";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-
+import { Ionicons } from "@expo/vector-icons";
 const { width } = Dimensions.get("window");
 
 const SavedPostsScreen = () => {
@@ -103,6 +103,12 @@ const SavedPostsScreen = () => {
   return (
     <View style={styles.container}>
       <View style={{ marginTop: 80 }}>
+      <TouchableOpacity
+        style={{top: 27, left: 10, zIndex: 1}} 
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="chevron-back" size={24} color="black" />
+      </TouchableOpacity>
         <Text style={styles.title}>Saved Posts</Text>
         <FlatList
           data={savedPosts}

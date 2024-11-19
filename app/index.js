@@ -16,6 +16,7 @@ import {
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
 import { auth } from "../configs/FirebaseConfig";
+import { ScrollView } from "react-native-gesture-handler";
 
 const IndexScreen = () => {
   const router = useRouter();
@@ -53,6 +54,7 @@ const IndexScreen = () => {
   }
 
   return (
+    <ScrollView contentContainerStyle={styles.container}>
     <View style={styles.container}>
       <StatusBar hidden />
       <Image
@@ -71,6 +73,7 @@ const IndexScreen = () => {
         <Text style={styles.buttonText}>→</Text>
       </TouchableOpacity>
     </View>
+    </ScrollView>
   );
 };
 
