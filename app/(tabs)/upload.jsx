@@ -125,6 +125,8 @@ const UploadScreen = () => {
   return (
     <ScrollView >
     <View style={styles.container}>
+      <View style={styles.topBar} />
+      <View style={styles.bottom} >
       <Text style={styles.title}>Upload Your Photo</Text>
 
       {/* Image Preview */}
@@ -183,6 +185,7 @@ const UploadScreen = () => {
           <Text style={styles.buttonText}>Upload Image</Text>
         )}
       </TouchableOpacity>
+      </View>
     </View>
     </ScrollView>
   );
@@ -195,13 +198,18 @@ const styles = StyleSheet.create({
     padding: 20,
     justifyContent: "center",
     alignItems: "center",
-    bottom: 80
   },
   title: {
     fontFamily: "Poppins_700Bold",
     fontSize: 24,
     color: "#000",
     marginBottom: 30,
+  },
+  bottom: {
+    flex: 1,
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginBottom: 150,
   },
   placeholderContainer: {
     width: width - 40,
@@ -238,7 +246,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 15,
     paddingHorizontal: 30,
-    marginBottom: 15,
+    margin: 15,
   },
   uploadButton: {
     borderRadius: 10,

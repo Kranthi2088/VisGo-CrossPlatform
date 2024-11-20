@@ -5,7 +5,6 @@ import { collection, getDocs, query, where, orderBy, getDoc, doc, Timestamp } fr
 import PostItem from "../PostItem";
 import CreatePost from "../addpost";
 import StoryBar from "../storybar";
-import CommentsModal from "../Commentsmodal"; // Make sure to import CommentsModal here
 import { BottomSheetBackdrop,bottomSheetModalRef } from "@gorhom/bottom-sheet";
 const HomeScreen = () => {
   const [posts, setPosts] = useState([]);
@@ -121,14 +120,7 @@ const HomeScreen = () => {
         ListEmptyComponent={<Text style={styles.noPostsText}>No posts found in the last 24 hours.</Text>}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />
-      {showComments.show && (
-        <CommentsModal
-        ref={commentsModalRef}
-        visible={isModalVisible}
-        onClose={handleCloseComments}
-        postId={selectedPostId}
-      />
-      )}
+      
     </View>
   );
 };

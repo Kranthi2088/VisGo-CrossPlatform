@@ -11,14 +11,11 @@ import {
   Dimensions,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator"; 
+import * as ImageManipulator from "expo-image-manipulator";
 import { useRouter } from "expo-router";
 import { auth, db, storage } from "../configs/FirebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import * as SplashScreen from "expo-splash-screen";
-
-SplashScreen.preventAutoHideAsync();
 
 const EditProfile = () => {
   const router = useRouter();
@@ -57,7 +54,7 @@ const EditProfile = () => {
 
       if (!result.canceled) {
         const resizedUri = await resizeImage(result.assets[0].uri);
-        const uploadedUrl = await uploadImageToStorage(resizedUri, type); // Pass the type correctly
+        const uploadedUrl = await uploadImageToStorage(resizedUri, type);
         setImage(uploadedUrl);
       }
     } catch (error) {
@@ -70,7 +67,7 @@ const EditProfile = () => {
     try {
       const manipResult = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 800 } }], // Resize to 800px width
+        [{ resize: { width: 800 } }],
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
       );
       return manipResult.uri;
@@ -85,11 +82,10 @@ const EditProfile = () => {
       const response = await fetch(uri);
       const blob = await response.blob();
 
-      const storageRef = ref(storage, `users/${user.uid}/uploads/${type}.jpg`); // Use the type for naming
+      const storageRef = ref(storage, `users/${user.uid}/uploads/${type}.jpg`);
       await uploadBytes(storageRef, blob);
 
       const downloadURL = await getDownloadURL(storageRef);
-      console.log(`Uploaded ${type} to:`, downloadURL);
       return downloadURL;
     } catch (error) {
       console.error(`Error uploading ${type}:`, error);
@@ -103,12 +99,10 @@ const EditProfile = () => {
         Alert.alert("Error", "User not authenticated");
         return;
       }
-  
-      const docRef = doc(db, "users", user.uid);  // Ensure you're using the correct user ID
-  
-      // Update user data in Firestore
+
+      const docRef = doc(db, "users", user.uid);
       await updateDoc(docRef, userData);
-  
+
       Alert.alert("Success", "Profile updated successfully!");
       router.push("/(tabs)/profile");
     } catch (error) {
@@ -117,8 +111,15 @@ const EditProfile = () => {
     }
   };
 
-  const handleSignOut = () => {
-    auth.signOut().then(() => router.replace("/auth/sign-in"));
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      Alert.alert("Signed Out", "You have been signed out successfully.");
+      router.replace("/auth/sign-in");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      Alert.alert("Error", "Failed to sign out. Please try again.");
+    }
   };
 
   return (
@@ -155,7 +156,6 @@ const EditProfile = () => {
         <Text style={styles.text}>Select Cover Photo</Text>
       </TouchableOpacity>
 
-      {/* Username Input */}
       <View style={styles.inputContainer}>
         <Text style={styles.inputHeader}>Username</Text>
         <TextInput
@@ -165,8 +165,7 @@ const EditProfile = () => {
         />
       </View>
 
-        {/** Email Input */}
-        <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
         <Text style={styles.inputHeader}>Email</Text>
         <TextInput
           value={userData.email}
@@ -174,7 +173,7 @@ const EditProfile = () => {
           style={styles.input}
         />
       </View>
-      {/** Bio Input */}
+
       <View style={styles.inputContainer}>
         <Text style={styles.inputHeader}>Bio</Text>
         <TextInput
@@ -183,10 +182,10 @@ const EditProfile = () => {
           placeholder="Bio"
           multiline={true}
           numberOfLines={4}
-          style={styles.para_input} // Add the para_input classinput}
+          style={styles.para_input}
         />
       </View>
-      {/** Date of Birth Input */}
+
       <View style={styles.inputContainer}>
         <Text style={styles.inputHeader}>Date of Birth</Text>
         <TextInput
@@ -197,7 +196,7 @@ const EditProfile = () => {
           style={styles.input}
         />
       </View>
-      {/** Gender Input */}
+
       <View style={styles.inputContainer}>
         <Text style={styles.inputHeader}>Gender</Text>
         <TextInput
@@ -206,15 +205,16 @@ const EditProfile = () => {
           style={styles.input}
         />
       </View>
-      {/** Address Input */}
+
       <View style={styles.inputContainer}>
         <Text style={styles.inputHeader}>Address</Text>
         <TextInput
           value={userData.address}
           onChangeText={(text) => setUserData({ ...userData, address: text })}
-          style={styles.para_input} // Add the para_input class
+          style={styles.para_input}
         />
       </View>
+
       <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
         <Text style={styles.saveButtonText}>Save Changes</Text>
       </TouchableOpacity>
@@ -238,8 +238,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginTop: 60,
-    marginLeft: 20,
+    marginTop: 30,
     marginBottom: 10,
   },
   coverImage: {
@@ -249,7 +248,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   text: {
-    fontFamily: "Poppins_400Regular",
     fontSize: 14,
     color: "#666",
     marginBottom: 15,
@@ -259,7 +257,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   inputHeader: {
-    fontFamily: "Poppins_700Bold",
     fontSize: 16,
     color: "#000",
     marginBottom: 5,
@@ -270,7 +267,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 10,
     color: "#fff",
-    fontFamily: "Poppins_400Regular",
   },
   para_input: {
     height: 120,
@@ -278,7 +274,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 10,
     color: "#fff",
-    fontFamily: "Poppins_400Regular",
   },
   saveButton: {
     backgroundColor: "#000",
@@ -289,7 +284,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   saveButtonText: {
-    fontFamily: "Poppins_700Bold",
     color: "#fff",
     fontSize: 18,
   },
@@ -301,7 +295,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   signOutButtonText: {
-    fontFamily: "Poppins_700Bold",
     color: "#fff",
     fontSize: 18,
   },

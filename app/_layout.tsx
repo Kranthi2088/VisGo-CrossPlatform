@@ -32,16 +32,21 @@ export default function RootLayout() {
   }
 
   return (
-    <BottomSheetModalProvider>
     <GestureHandlerRootView style={{ flex: 1 }}>
+    <BottomSheetModalProvider>
       
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
+        <Stack.Screen name="postdetails"  />
+         <Stack.Screen name="fullimageviewer" options={{ headerShown: false }} />
         {/* <Stack.Screen name="(tabs)" /> */}
+        <Stack.Screen name="commentscreen" options={{ presentation: "modal" }} />
+        
       </Stack>
+      </BottomSheetModalProvider>
     </GestureHandlerRootView>
-    </BottomSheetModalProvider>
+    
 
     
   );

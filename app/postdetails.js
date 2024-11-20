@@ -1,11 +1,29 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Dimensions,
+  Alert,
+} from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import { doc, getDoc, collection, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+} from "firebase/firestore";
 import { db, auth } from "../configs/FirebaseConfig";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Feather from "react-native-vector-icons/Feather";
-import PostItem from "./PostItem"; // Assuming you have a PostItem component for displaying post details
+import PostItem from "./PostItem";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -41,11 +59,14 @@ const PostDetails = () => {
       const commentsQuery = query(commentsRef, orderBy("timestamp", "desc"));
 
       const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
-        const commentsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const commentsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
         setComments(commentsData);
       });
 
-      return unsubscribe;
+      return () => unsubscribe();
     };
 
     fetchPost();
@@ -53,6 +74,24 @@ const PostDetails = () => {
 
     return () => unsubscribeComments();
   }, [postId]);
+
+  const createNotification = async (type, actorId) => {
+    try {
+      if (actorId) {
+        // Create a notification only if the comment isn't from the post owner
+        await addDoc(collection(db, "notifications"), {
+          targetUserId: post?.userId,
+          actorUserId: actorId,
+          postId: postId,
+          type: type, // "comment"
+          timestamp: new Date(),
+          read: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error creating notification:", error);
+    }
+  };
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
@@ -74,12 +113,16 @@ const PostDetails = () => {
 
       const userData = userDocSnap.data();
 
+      // Add comment to Firestore
       await addDoc(collection(db, "posts", postId, "comments"), {
         text: newComment,
         userId: currentUser.uid,
         username: userData.username || "Anonymous",
         timestamp: new Date(),
       });
+
+      // Create notification for the comment
+      await createNotification("comment", currentUser.uid);
 
       setNewComment("");
     } catch (error) {
@@ -104,7 +147,7 @@ const PostDetails = () => {
       >
         <Ionicons name="chevron-back" size={24} color="black" />
       </TouchableOpacity>
-      
+
       {/* Display the Post */}
       <View style={styles.incontainer}>
         {post ? (
@@ -139,7 +182,6 @@ const PostDetails = () => {
           style={styles.input}
           placeholder="Add a comment..."
           placeholderTextColor="black"
-          
           value={newComment}
           onChangeText={setNewComment}
         />
@@ -171,7 +213,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   commentsList: {
-    paddingHorizontal: 10 // Space for input at bottom
+    paddingHorizontal: 10, // Space for input at bottom
   },
   commentContainer: {
     flexDirection: "row",

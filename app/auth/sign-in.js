@@ -5,67 +5,53 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   StatusBar,
-  Platform,
-  ToastAndroid,
+  ActivityIndicator,
 } from "react-native";
 import Checkbox from "expo-checkbox";
 import { useRouter } from "expo-router";
-import {
-  useFonts,
-  Poppins_400Regular,
-  Poppins_700Bold,
-} from "@expo-google-fonts/poppins";
-import * as SplashScreen from "expo-splash-screen"; // Import SplashScreen
 import { auth } from "../../configs/FirebaseConfig";
-import { signInWithEmailAndPassword } from "firebase/auth";
-
-// Prevent the splash screen from auto-hiding until fonts are loaded
-SplashScreen.preventAutoHideAsync();
+import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 
 const SignIn = () => {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [isReady, setIsReady] = useState(false); // Track if the app is ready
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-  const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_700Bold,
-  });
-
-  // Hide the splash screen when fonts are loaded
+  // Check for existing session on component mount
   useEffect(() => {
-    async function prepare() {
-      if (fontsLoaded) {
-        await SplashScreen.hideAsync(); // Hide the splash screen
-        setIsReady(true); // Set the app as ready
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // If user is already signed in, navigate to the home screen
+        router.push("../(tabs)/home");
+      } else {
+        // Allow login UI to render
+        setIsCheckingSession(false);
       }
-    }
-    prepare();
-  }, [fontsLoaded]);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const onSignIn = () => {
     signInWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        const user = userCredential.user;
-        console.log(user);
-        router.push("/home"); // Navigate to home
+      .then(() => {
+        router.push("/(tabs)/home"); // Navigate to home on successful login
       })
       .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        console.log(errorCode, errorMessage);
-        if (errorCode === "auth/invalid-credential") {
-            alert("Invalid email or password");
-        }
+        alert("Invalid email or password");
       });
   };
 
-  if (!isReady) {
-    return null; // Display nothing until the app is ready
+  if (isCheckingSession) {
+    // Display a loading indicator while checking for existing session
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#000" />
+      </View>
+    );
   }
 
   return (
@@ -75,9 +61,9 @@ const SignIn = () => {
       {/* Go back button */}
       <TouchableOpacity
         style={styles.goBackButton}
-        onPress={() => router.back()}
+        onPress={() => router.push("/")}
       >
-        <Text style={styles.goBackButtonText}> Back</Text>
+        <Text style={styles.goBackButtonText}>Back</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>Welcome!</Text>
@@ -136,25 +122,17 @@ const SignIn = () => {
           <Text style={styles.link}>Forgot Password</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Separator */}
-      <View style={styles.separatorContainer}>
-        <View style={styles.separator} />
-        <Text style={styles.orText}>OR</Text>
-        <View style={styles.separator} />
-      </View>
-
-      {/* Sign in with Google */}
-      <TouchableOpacity style={styles.googleButton}>
-        <Text style={styles.googleButtonText}>Sign In With Google</Text>
-      </TouchableOpacity>
     </View>
   );
 };
 
-const { width } = Dimensions.get("window");
-
 const styles = StyleSheet.create({
+  // Reuse your existing styles
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
@@ -163,24 +141,22 @@ const styles = StyleSheet.create({
   },
   goBackButton: {
     position: "absolute",
-    top: Platform.select({ ios: 40, android: 20 }),
+    top: 20,
     left: 15,
     zIndex: 1,
     padding: 10,
   },
   goBackButtonText: {
     color: "#000",
-    fontFamily: "Poppins_700Bold",
+    fontWeight: "bold",
     fontSize: 16,
   },
   title: {
-    fontFamily: "Poppins_700Bold",
     fontSize: 28,
     color: "#000",
     marginBottom: 10,
   },
   subtitle: {
-    fontFamily: "Poppins_400Regular",
     fontSize: 16,
     color: "#666",
     marginBottom: 30,
@@ -194,7 +170,6 @@ const styles = StyleSheet.create({
   input: {
     height: 50,
     color: "white",
-    fontFamily: "Poppins_400Regular",
   },
   rememberContainer: {
     flexDirection: "row",
@@ -202,7 +177,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   rememberText: {
-    fontFamily: "Poppins_400Regular",
     color: "#000",
     marginLeft: 10,
   },
@@ -214,7 +188,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   signInButtonText: {
-    fontFamily: "Poppins_700Bold",
     color: "#fff",
     fontSize: 18,
   },
@@ -224,42 +197,10 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: "#000",
-    fontFamily: "Poppins_400Regular",
   },
   link: {
     color: "#000",
-    fontFamily: "Poppins_700Bold",
-  },
-  forgotPassword: {
-    color: "#000",
-    marginTop: 5,
-    fontFamily: "Poppins_400Regular",
-  },
-  separatorContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-  separator: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#333",
-  },
-  orText: {
-    fontFamily: "Poppins_400Regular",
-    color: "#666",
-    marginHorizontal: 10,
-  },
-  googleButton: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  googleButtonText: {
-    fontFamily: "Poppins_700Bold",
-    color: "#000",
-    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 

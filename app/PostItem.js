@@ -1,12 +1,35 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  Dimensions,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { db, auth } from "../configs/FirebaseConfig";
-import { doc, collection, addDoc, deleteDoc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
+import {
+  doc,
+  collection,
+  addDoc,
+  deleteDoc,
+  setDoc,
+  onSnapshot,
+  getDoc,
+} from "firebase/firestore";
+import { useNavigation } from "@react-navigation/native";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) => {
+const PostItem = ({
+  postData,
+  username,
+  profilePhoto,
+  postId,
+}) => {
   const { textContent, imageUrl, postOwnerId } = postData;
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
@@ -14,7 +37,7 @@ const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) 
   const [newComment, setNewComment] = useState("");
   const [isSaved, setIsSaved] = useState(false);
   const currentUser = auth.currentUser;
-
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (!postId) return;
@@ -28,15 +51,24 @@ const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) 
         setLiked(snapshot.docs.some((doc) => doc.id === currentUser.uid));
       }
     });
-
+    
     const unsubscribeComments = onSnapshot(commentsRef, (snapshot) => {
-      const commentsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const commentsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
       setComments(commentsData);
     });
 
     const checkIfSaved = async () => {
       if (currentUser) {
-        const savedPostRef = doc(db, "users", currentUser.uid, "saved_posts", postId);
+        const savedPostRef = doc(
+          db,
+          "users",
+          currentUser.uid,
+          "saved_posts",
+          postId
+        );
         const savedPostSnap = await getDoc(savedPostRef);
         setIsSaved(savedPostSnap.exists());
       }
@@ -56,7 +88,13 @@ const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) 
       return;
     }
 
-    const savedPostRef = doc(db, "users", currentUser.uid, "saved_posts", postId);
+    const savedPostRef = doc(
+      db,
+      "users",
+      currentUser.uid,
+      "saved_posts",
+      postId
+    );
 
     try {
       if (isSaved) {
@@ -82,7 +120,8 @@ const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) 
   // Function to create a notification in the notifications collection
   const createNotification = async (type) => {
     try {
-      if ( postOwnerId) { // Avoid notifying if the user is the post owner
+      if (postOwnerId) {
+        // Avoid notifying if the user is the post owner
         await addDoc(collection(db, "notifications"), {
           targetUserId: postOwnerId,
           actorUserId: currentUser.uid,
@@ -157,7 +196,12 @@ const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) 
       Alert.alert("Error", "Failed to add comment.");
     }
   };
-
+  const navigateToFullImage = (imageUrl) => {
+    navigation.navigate("fullimageviewer", { imageUrl }); // Navigate to FullImageViewer with the imageUrl
+  };
+  const navigateToComments = (postId) => {
+    navigation.navigate("commentscreen", { postId: postId });
+  };
   return (
     <View style={styles.postContainer}>
       {/* Header with Profile Image and Username */}
@@ -165,15 +209,24 @@ const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) 
         <Image source={{ uri: profilePhoto }} style={styles.profileImage} />
         <View>
           <Text style={styles.username}>{username}</Text>
-          <Text style={styles.timestamp}>2h</Text>
+          <Text style={styles.timestamp}
+          >2h</Text>
+          
         </View>
+        
       </View>
-
+      {postData.description ? (
+        <Text style={styles.description}>
+          {postData.description}
+        </Text>
+      ) : null}
       {/* Content Section */}
       {textContent ? (
         <Text style={styles.textContent}>{textContent}</Text>
       ) : (
-        <Image source={{ uri: imageUrl }} style={styles.postImage} />
+        <TouchableOpacity onPress={() => navigateToFullImage(imageUrl)}>
+          <Image source={{ uri: imageUrl }} style={styles.postImage} />
+        </TouchableOpacity>
       )}
 
       {/* Actions */}
@@ -182,15 +235,19 @@ const PostItem = ({ postData, username, profilePhoto, postId, onOpenComments }) 
           <Feather name="heart" size={18} color={liked ? "red" : "black"} />
           <Text style={styles.actionText}>{likesCount}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => onOpenComments(postId)}>
+        <TouchableOpacity >
           <Text>{comments.length} Comments</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton}>
           <Feather name="share" size={18} color="black" />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleSavePost} style={styles.actionButton}>
-        <Feather name="bookmark" size={18} color={isSaved ? "blue" : "black"} />
-      </TouchableOpacity>
+          <Feather
+            name="bookmark"
+            size={18}
+            color={isSaved ? "blue" : "black"}
+          />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -257,6 +314,12 @@ const styles = StyleSheet.create({
     color: "gray",
     marginLeft: 5,
   },
+  description: {
+    fontSize: 14,
+    color: "black",
+    marginTop: 5,
+  },
+  
 });
 
 export default PostItem;

@@ -16,36 +16,34 @@ import {
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
 import { auth } from "../configs/FirebaseConfig";
-import { ScrollView } from "react-native-gesture-handler";
+import { onAuthStateChanged } from "firebase/auth";
 
 const IndexScreen = () => {
   const router = useRouter();
+  const [authStateChecked, setAuthStateChecked] = useState(false); // Ensure auth is resolved
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_700Bold,
   });
-  const [loading, setLoading] = useState(true); // Track loading state
-  const [user, setUser] = useState(null); // Track authenticated user
 
-  // Check user authentication state asynchronously
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+    // Check if the user is authenticated
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        console.log("Authenticated user:", currentUser.email);
-        setUser(currentUser);
-        router.push("/tabs/home"); // Navigate to home tab if authenticated
+        console.log("User authenticated:", currentUser.email);
+        router.replace("/(tabs)/home"); // Redirect to home
       } else {
-        setUser(null);
+        console.log("No authenticated user.");
+        setAuthStateChecked(true); // Allow the login screen to render
       }
-      setLoading(false); // Stop loading once auth state is resolved
     });
 
-    // Clean up the listener on unmount
+    // Cleanup the listener on unmount
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
-  if (loading || !fontsLoaded) {
-    // Show a loading spinner until Firebase resolves the auth state
+  if (!authStateChecked || !fontsLoaded) {
+    // Show a single loading screen until auth state is resolved
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4A4AFF" />
@@ -54,7 +52,6 @@ const IndexScreen = () => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
     <View style={styles.container}>
       <StatusBar hidden />
       <Image
@@ -73,7 +70,6 @@ const IndexScreen = () => {
         <Text style={styles.buttonText}>→</Text>
       </TouchableOpacity>
     </View>
-    </ScrollView>
   );
 };
 

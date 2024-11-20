@@ -91,12 +91,12 @@ const NotificationsScreen = () => {
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}
       />
-      <Text style={styles.sectionTitle}>Yesterday</Text>
+      {/* <Text style={styles.sectionTitle}>Yesterday</Text>
       <FlatList
         data={notifications.yesterday}
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}
-      />
+      /> */}
       <Text style={styles.sectionTitle}>Last 7 days</Text>
       <FlatList
         data={notifications.lastWeek}

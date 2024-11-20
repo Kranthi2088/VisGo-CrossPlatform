@@ -11,7 +11,18 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { auth, db } from "../configs/FirebaseConfig";
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  addDoc,
+} from "firebase/firestore";
 import MasonryList from "react-native-masonry-list";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,8 +32,8 @@ const { width } = Dimensions.get("window");
 const OtherUserProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { userId } = route.params;
-  const currentUser = auth.currentUser;
+  const { userId } = route.params; // The user ID of the profile being viewed
+  const currentUser = auth.currentUser; // The logged-in user
 
   const [userData, setUserData] = useState({});
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
@@ -31,6 +42,22 @@ const OtherUserProfileScreen = () => {
   const [selectedView, setSelectedView] = useState("imagePosts"); // Toggle between image and text posts
   const [loading, setLoading] = useState(true);
 
+  // Create a follow notification
+  const createFollowNotification = async (targetUserId, actorUserId) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        type: "follow",
+        targetUserId,
+        actorUserId,
+        timestamp: new Date(),
+        read: false,
+      });
+    } catch (error) {
+      console.error("Error creating follow notification:", error);
+    }
+  };
+
+  // Fetch user data
   const fetchUserData = async () => {
     try {
       const userDocRef = doc(db, "users", userId);
@@ -45,6 +72,7 @@ const OtherUserProfileScreen = () => {
     }
   };
 
+  // Fetch user posts
   const fetchUserPosts = async () => {
     try {
       const postsQuery = query(
@@ -78,6 +106,7 @@ const OtherUserProfileScreen = () => {
     }
   };
 
+  // Check if the current user is following this profile
   const checkIfFollowing = async () => {
     try {
       const currentUserDocRef = doc(db, "users", currentUser.uid);
@@ -98,6 +127,7 @@ const OtherUserProfileScreen = () => {
       const otherUserDocRef = doc(db, "users", userId);
 
       if (isFollowing) {
+        // Unfollow logic
         await updateDoc(currentUserDocRef, {
           following: arrayRemove(userId),
         });
@@ -106,12 +136,17 @@ const OtherUserProfileScreen = () => {
         });
         setIsFollowing(false);
       } else {
+        // Follow logic
         await updateDoc(currentUserDocRef, {
           following: arrayUnion(userId),
         });
         await updateDoc(otherUserDocRef, {
           followers: arrayUnion(currentUser.uid),
         });
+
+        // Create follow notification
+        await createFollowNotification(userId, currentUser.uid);
+
         setIsFollowing(true);
       }
     } catch (error) {
@@ -132,6 +167,7 @@ const OtherUserProfileScreen = () => {
     });
   };
 
+  // Fetch data on component mount
   useEffect(() => {
     fetchUserData();
     fetchUserPosts();
