@@ -59,6 +59,11 @@ export default function CameraScreen() {
           autoFocus={Camera.Constants.AutoFocus.on}
         />
       )}
+      <View style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Feather name="chevron-left" size={28} color="#fff" />
+        </TouchableOpacity>
+      </View>
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
           <Feather name="camera" size={28} color="#fff" />
@@ -73,4 +78,5 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   overlay: { position: "absolute", bottom: 20, width: "100%", alignItems: "center" },
   captureButton: { backgroundColor: "#ff5252", padding: 20, borderRadius: 40 },
+  backButton: { position: "absolute", top: 40, left: 20, zIndex: 10 },
 });

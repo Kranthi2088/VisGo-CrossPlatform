@@ -26,6 +26,8 @@ import {
 import MasonryList from "react-native-masonry-list";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { LogBox } from 'react-native';
+LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
 
 const { width } = Dimensions.get("window");
 

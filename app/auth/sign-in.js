@@ -12,6 +12,8 @@ import Checkbox from "expo-checkbox";
 import { useRouter } from "expo-router";
 import { auth } from "../../configs/FirebaseConfig";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { LogBox } from 'react-native';
+LogBox.ignoreLogs([' @firebase/firestore: Firestore (10.14.1)']);
 
 const SignIn = () => {
   const router = useRouter();
